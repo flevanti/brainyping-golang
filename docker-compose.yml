@@ -1,0 +1,33 @@
+#
+# RABBITMQ AND MONGO FOR DEV PURPOSE
+#
+
+version: '3.3'
+
+services:
+
+  mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - '~/.dockerdata/brainyping/mongodb/data:/data/db'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+
+
+  rabbitmq3:
+    image: rabbitmq:3.9-management
+    hostname: myrabbithost
+    container_name: myrabbit
+    environment:
+      - RABBITMQ_DEFAULT_USER=myuser
+      - RABBITMQ_DEFAULT_PASS=mypassword
+    volumes:
+      - '~/.dockerdata/brainyping/rabbitmq/data:/var/lib/rabbitmq'
+    ports:
+      # AMQP protocol port
+      - '5672:5672'
+      # HTTP management UI
+      - '15672:15672'
