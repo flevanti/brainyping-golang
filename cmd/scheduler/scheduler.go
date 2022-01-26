@@ -74,7 +74,7 @@ func scheduleChecks() {
 		recScheduledTotal++
 		//add start time to the record to have a point of reference for future checks (and be able to reference a planned scheduled time instead of the time the check occurs)
 		recordQueued = queueHelper.CheckRecordQueued{Record: record}
-		_, err = scheduler.Every(record.Frequency).Second().StartAt(time.Unix(record.StartSchedTimeUnix, 0)).Tag(record.CheckId).Do(queue, recordQueued)
+		_, err = scheduler.Every(int(record.Frequency)).Second().StartAt(time.Unix(record.StartSchedTimeUnix, 0)).Tag(record.CheckId).Do(queue, recordQueued)
 		utilities.FailOnError(err)
 		printLine(recScheduledTotal, utilities.GetMemoryStats("MB")["AllocUnit"])
 
@@ -109,12 +109,13 @@ func queue(record queueHelper.CheckRecordQueued) {
 	}
 	atomic.AddInt64(&jobsQueuedSinceBoot, 1)
 	record.QueuedUnix = time.Now().Unix()
-	record.ScheduledUnix = time.Now().Unix()
+	record.ScheduledUnix = calculateScheduledTime(&record.Record.StartSchedTimeUnix, &record.Record.Frequency)
 	var recordJson, err = json.Marshal(record)
 	if err != nil {
 		fmt.Println("🔴")
 		log.Fatal(err)
 	}
+	//TODO SEND THE SCHEDULED EVENT ALSO TO THE SCHEDULE PLAN...
 
 	//for the moment we queue the whole record scheduled,
 	//maybe later down the line we want to slim down...or enrich?
@@ -125,8 +126,18 @@ func queue(record queueHelper.CheckRecordQueued) {
 
 }
 
-func addScheduledJob() {
+//Ok so this is tricky and probably not necessary.
+//Unless the scheduled time is exactly the current timestamp 🍾
+//we will consider the scheduled time the nearest one in the past
+//we are basically assuming that we are a little behind schedule... not ahead....
+func calculateScheduledTime(startedAt *int64, frequency *int64) int64 {
 
+	currentTimeUnix := time.Now().Unix()
+
+	//add to the initial start time as many "frequency" as calculated dividing the difference in seconds between the start time and now
+	//basically ... start time is 10, frequency is 2, current time is 15, the nearest scheduled time in the past is 14.
+	//oooh boy so many *****
+	return *startedAt + *frequency*((currentTimeUnix-*startedAt) / *frequency)
 }
 
 func ShowMemoryStatsWhileSchedulerIsRunning() {

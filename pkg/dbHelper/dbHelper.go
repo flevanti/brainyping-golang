@@ -26,7 +26,7 @@ type CheckRecord struct {
 	Port               int      `bson:"port"`
 	Type               string   `bson:"type"`
 	SubType            string   `bson:"subtype"`
-	Frequency          int      `bson:"frequency"`
+	Frequency          int64    `bson:"frequency"`
 	Regions            []string `bson:"regions"`
 	RegionsEachTime    int      `bson:"regionseachtime"`
 	Enabled            bool     `bson:"enabled"`
