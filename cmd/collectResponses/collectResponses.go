@@ -1,9 +1,9 @@
 package main
 
 import (
-	"awesomeProject/pkg/dbHelper"
-	"awesomeProject/pkg/queueHelper"
-	"awesomeProject/pkg/utilities"
+	"brainyping/pkg/dbHelper"
+	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/utilities"
 	"context"
 	"encoding/json"
 	"fmt"

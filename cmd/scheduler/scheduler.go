@@ -1,20 +1,22 @@
 package main
 
 import (
-	"awesomeProject/pkg/dbHelper"
-	"awesomeProject/pkg/queueHelper"
-	"awesomeProject/pkg/utilities"
+	"brainyping/pkg/dbHelper"
+	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/utilities"
 	"encoding/json"
 	"fmt"
 	"github.com/go-co-op/gocron"
 	"log"
+	"sync/atomic"
 	"time"
 )
 
 var scheduler *gocron.Scheduler
-var spreadTimeWindow int64 = 900
 var bootTime time.Time = time.Now()
 var jobsQueuedSinceBoot int64
+var jobsNotQueuedBecausePaused int64
+var schedulerPaused bool //this is not interacting with the scheduler directly but preventing it to push new cheduled jobs in the queue to be processed
 
 func main() {
 	fmt.Println("SCHEDULER")
@@ -28,7 +30,6 @@ func main() {
 	}
 
 	fmt.Println(count, " checks with enabled status")
-	fmt.Println(spreadTimeWindow, " seconds used to spread the load")
 
 	scheduler = gocron.NewScheduler(time.UTC)
 	//enforce uniqueness of tags that we are using as a way to retrieve a scheduled job later...
@@ -36,8 +37,12 @@ func main() {
 
 	//put each check in the scheduler
 	scheduleChecks()
+
+	//wait for all jobs to be started before accepting scheduled jobs
+	schedulerPaused = true
 	//start the scheduler
 	startScheduler()
+	schedulerPaused = false
 
 	//done, show some statistics.... forever!
 	ShowMemoryStatsWhileSchedulerIsRunning()
@@ -62,6 +67,7 @@ func scheduleChecks() {
 	}
 
 	chRecords := make(chan dbHelper.CheckRecord)
+	fmt.Println("Adding records to scheduler")
 	go dbHelper.RetrieveEnabledChecksToBeScheduled(chRecords)
 
 	for record = range chRecords {
@@ -70,8 +76,9 @@ func scheduleChecks() {
 		recordQueued = queueHelper.CheckRecordQueued{Record: record}
 		_, err = scheduler.Every(record.Frequency).Second().StartAt(time.Unix(record.StartSchedTimeUnix, 0)).Tag(record.CheckId).Do(queue, recordQueued)
 		utilities.FailOnError(err)
+		printLine(recScheduledTotal, utilities.GetMemoryStats("MB")["AllocUnit"])
+
 	} //end ch range
-	printLine(recScheduledTotal, utilities.GetMemoryStats("MB")["AllocUnit"])
 	fmt.Println()
 
 }
@@ -96,6 +103,11 @@ func waitForSchedulerToStart(doneSignal <-chan int) {
 }
 
 func queue(record queueHelper.CheckRecordQueued) {
+	if schedulerPaused {
+		atomic.AddInt64(&jobsNotQueuedBecausePaused, 1)
+		return
+	}
+	atomic.AddInt64(&jobsQueuedSinceBoot, 1)
 	record.QueuedUnix = time.Now().Unix()
 	record.ScheduledUnix = time.Now().Unix()
 	var recordJson, err = json.Marshal(record)
@@ -111,7 +123,6 @@ func queue(record queueHelper.CheckRecordQueued) {
 		log.Fatal(err)
 	}
 
-	jobsQueuedSinceBoot++
 }
 
 func addScheduledJob() {
@@ -120,16 +131,20 @@ func addScheduledJob() {
 
 func ShowMemoryStatsWhileSchedulerIsRunning() {
 	for {
-
+		fmt.Print("\033[H\033[2J")
 		memoryStats := utilities.GetMemoryStats("MB")
-		fmt.Printf("SCHED JOBS %d JOBS QUEUED %d MALLOC %s MALLOCTOT %s GC %s   (Uptime %s)\033[0K\r",
+		if schedulerPaused {
+			fmt.Printf("SCHEDULER IS PAUSED 🟠 - MISSED JOBS %d\n", jobsNotQueuedBecausePaused)
+		} else {
+			fmt.Println("SCHEDULER IS ACTIVE 🟢")
+		}
+		fmt.Printf("JOBS IN SCHEDULER %d JOBS QUEUED SO FAR %d MALLOC %s GC %s   (Uptime %s)",
 			scheduler.Len(),
 			jobsQueuedSinceBoot,
 			memoryStats["AllocUnit"],
-			memoryStats["TotalAllocUnit"],
 			memoryStats["NumGC"],
 			time.Since(bootTime)/time.Second*time.Second)
 
-		time.Sleep(time.Second * 3)
+		time.Sleep(time.Second * 1)
 	}
 }

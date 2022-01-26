@@ -1,9 +1,9 @@
 package checks
 
 import (
-	"awesomeProject/pkg/checks/httpcheck"
-	"awesomeProject/pkg/dbHelper"
-	"awesomeProject/pkg/queueHelper"
+	"brainyping/pkg/checks/httpcheck"
+	"brainyping/pkg/dbHelper"
+	"brainyping/pkg/queueHelper"
 	"time"
 )
 

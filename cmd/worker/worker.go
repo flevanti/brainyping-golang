@@ -1,9 +1,9 @@
 package main
 
 import (
-	"awesomeProject/pkg/checks"
-	"awesomeProject/pkg/queueHelper"
-	"awesomeProject/pkg/utilities"
+	"brainyping/pkg/checks"
+	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/utilities"
 	"context"
 	"encoding/json"
 	"errors"

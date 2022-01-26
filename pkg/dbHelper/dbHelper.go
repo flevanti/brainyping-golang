@@ -1,8 +1,8 @@
 package dbHelper
 
 import (
-	_ "awesomeProject/pkg/dotEnv"
-	"awesomeProject/pkg/utilities"
+	_ "brainyping/pkg/dotEnv"
+	"brainyping/pkg/utilities"
 	"context"
 	"errors"
 	"fmt"
@@ -114,6 +114,12 @@ func EmptyTable(t string) {
 	utilities.FailOnError(err)
 }
 
+func DeleteAllChecksByOwnerUid(ownerUid string) {
+	d, err := client.Database(DATABASE).Collection(TABLENAME_CHECKS).DeleteMany(ctx, bson.M{"owneruid": bson.M{"$eq": ownerUid}})
+	_ = d
+	utilities.FailOnError(err)
+}
+
 func DeleteTable(t string) error {
 	return client.Database(DATABASE).Collection(t).Drop(ctx)
 }
@@ -216,7 +222,6 @@ func GetRecords() {
 }
 
 func RetrieveEnabledChecksToBeScheduled(ch chan CheckRecord) {
-	fmt.Println("reading records!!!!")
 	coll := GetClient().Database("brainyping").Collection("checks")
 	opts := options.Find().SetProjection(bson.D{
 		{"checkid", 1},
@@ -229,6 +234,7 @@ func RetrieveEnabledChecksToBeScheduled(ch chan CheckRecord) {
 		{"regions", 1},
 		{"regionseachtime", 1},
 		{"owneruid", 1},
+		{"startschedtimeunix", 1},
 	})
 	cursor, err := coll.Find(context.TODO(), bson.M{"enabled": true}, opts)
 	if err != nil {

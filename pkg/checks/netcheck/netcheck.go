@@ -1,7 +1,7 @@
 package netcheck
 
 import (
-	"awesomeProject/pkg/queueHelper"
+	"brainyping/pkg/queueHelper"
 )
 
 func ProcessRequest(check *queueHelper.CheckRecordQueued) {

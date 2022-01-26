@@ -1,7 +1,7 @@
 package httpcheck
 
 import (
-	"awesomeProject/pkg/dbHelper"
+	"brainyping/pkg/dbHelper"
 	"errors"
 	"fmt"
 	"net/http"

@@ -1,9 +1,9 @@
 package queueHelper
 
 import (
-	"awesomeProject/pkg/dbHelper"
-	_ "awesomeProject/pkg/dotEnv"
-	"awesomeProject/pkg/utilities"
+	"brainyping/pkg/dbHelper"
+	_ "brainyping/pkg/dotEnv"
+	"brainyping/pkg/utilities"
 	"context"
 	_ "github.com/joho/godotenv"
 	"github.com/streadway/amqp"

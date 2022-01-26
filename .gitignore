@@ -15,9 +15,11 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-siteslist.txt
+/siteslist_long.txt
+/siteslist_long.txt
 /.idea/
 /.vscode/
 .env
+
 
 

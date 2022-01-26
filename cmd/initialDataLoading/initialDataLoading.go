@@ -1,11 +1,10 @@
 package main
 
 import (
-	"awesomeProject/pkg/dbHelper"
-	_ "awesomeProject/pkg/dotEnv"
-	"awesomeProject/pkg/utilities"
+	"brainyping/pkg/dbHelper"
+	_ "brainyping/pkg/dotEnv"
+	"brainyping/pkg/utilities"
 	"bufio"
-	"flag"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
@@ -14,30 +13,16 @@ import (
 	"time"
 )
 
-var dataLoadingLimit int64
 var recordsToSave []interface{}
 
-const BULKSAVEBATCHSIZE = 1000 //speed up a bit the import with multiple inserts (please note that each imported record has nth records in the db)
-const RECORDSPERSECOND = 50
-
-func parseFlags() {
-	//register flags and set defaults...
-	limit := flag.Int64("limit", 9999999, "# of records to dataload")
-
-	//parse flags...
-	flag.Parse()
-
-	//assign values
-	dataLoadingLimit = *limit
-
-}
+const BULKSAVEBATCHSIZE int = 1000 //speed up a bit the import with multiple inserts (please note that each imported record has nth records in the db)
+const RECORDSPERSECOND int = 10    //this will determine
+const OWNERUID string = "INIT-DATA-LOAD"
 
 func main() {
-	parseFlags()
 
 	timeStart := time.Now()
 	fmt.Println("Process started at ", timeStart.Format(time.ANSIC))
-	fmt.Printf("Dataloading limit is %d records\n", dataLoadingLimit)
 	fmt.Println("Current memory usage: ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
 	dbHelper.Connect()
 	defer dbHelper.Disconnect()
@@ -45,7 +30,7 @@ func main() {
 	if !dbHelper.CheckIfTableExists(dbHelper.TABLENAME_CHECKS) {
 		utilities.FailOnError(dbHelper.CreateTable(dbHelper.TABLENAME_CHECKS))
 	} else {
-		dbHelper.EmptyTable(dbHelper.TABLENAME_CHECKS)
+		dbHelper.DeleteAllChecksByOwnerUid(OWNERUID)
 	}
 
 	readAndWrite()
@@ -56,17 +41,13 @@ func main() {
 	fmt.Println("Current memory usage (after GC): ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
 	fmt.Printf("It took %d seconds... \n", timeElapsed)
 
-	//openConnection()
-	//truncateTable()
-	//readAndWrite()
-
 }
 
 func readAndWrite() {
 
-	var linesReadFromFile int  //records processed
-	var recsSaved int64        //records saved to db
-	var recsInBufferList int64 //records in list to be saved
+	var linesReadFromFile int //records processed
+	var recsSaved int         //records saved to db
+	var recsInBufferList int  //records in list to be saved
 	var creationTimeUnix int64 = time.Now().Unix()
 	var startSchedTimeUnix int64 = time.Now().Unix()
 	var record dbHelper.CheckRecord
@@ -82,7 +63,7 @@ func readAndWrite() {
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
-		if recordsInCurrentSecond >= RECORDSPERSECOND {
+		if recordsInCurrentSecond >= RECORDSPERSECOND/2 {
 			recordsInCurrentSecond = 0
 			startSchedTimeUnix--
 		}
@@ -95,19 +76,18 @@ func readAndWrite() {
 		//HTTPS HEAD
 		record = dbHelper.CheckRecord{
 			CheckId:            fmt.Sprint("RECID-", recsSaved),
-			Name:               scanner.Text() + "HTTPHEAD",
 			Host:               "https://" + scanner.Text(),
 			Port:               443,
 			Type:               "HTTP",
 			SubType:            "HEAD",
-			Frequency:          900,
+			Frequency:          300,
 			Enabled:            true,
 			Regions:            []string{"GLOBAL"},
 			RegionsEachTime:    1,
 			StartSchedTimeUnix: startSchedTimeUnix,
 			CreatedUnix:        creationTimeUnix,
 			UpdatedUnix:        creationTimeUnix,
-			OwnerUid:           "OWNER1",
+			OwnerUid:           OWNERUID,
 		}
 		record.Name = scanner.Text() + record.Type + record.SubType
 		recordsToSave = append(recordsToSave, record)
@@ -122,23 +102,6 @@ func readAndWrite() {
 		recsSaved++
 		recsInBufferList++
 
-		////HTTPS ROBOTSTXT
-		//record.CheckId = fmt.Sprint("RECID-", recsSaved)
-		//record.SubType = "ROBOTSTXT"
-		//record.Name = scanner.Text() + record.Type + record.SubType
-		//recordsToSave = append(recordsToSave, record)
-		//recsSaved++
-		//recsInBufferList++
-		//
-		////NET
-		//record.CheckId = fmt.Sprint("RECID-", recsSaved)
-		//record.Type = "NET"
-		//record.SubType = "NET"
-		//record.Name = scanner.Text() + record.Type + record.SubType
-		//recordsToSave = append(recordsToSave, record)
-		//recsSaved++
-		//recsInBufferList++
-
 		if recsInBufferList >= BULKSAVEBATCHSIZE {
 			err := dbHelper.SaveManyRecords(&recordsToSave, dbHelper.TABLENAME_CHECKS) // pass by reference to save some memory?
 			utilities.FailOnError(err)
@@ -150,10 +113,6 @@ func readAndWrite() {
 		//print some information to avoid thinking we are stuck... please not the "\r"
 		fmt.Printf("\r%d lines read from file, %d records saved to db ", linesReadFromFile, recsSaved)
 
-		//check if we reached the limit of records to import.....
-		if recsSaved >= dataLoadingLimit {
-			break
-		}
 	} // for scanner
 
 	fmt.Println()
