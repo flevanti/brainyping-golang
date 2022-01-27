@@ -80,7 +80,7 @@ func readAndWrite() {
 			Port:               443,
 			Type:               "HTTP",
 			SubType:            "HEAD",
-			Frequency:          300,
+			Frequency:          4,
 			Enabled:            true,
 			Regions:            []string{"GLOBAL"},
 			RegionsEachTime:    1,
