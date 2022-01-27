@@ -26,7 +26,7 @@ type CheckRecord struct {
 	Port               int      `bson:"port"`
 	Type               string   `bson:"type"`
 	SubType            string   `bson:"subtype"`
-	Frequency          int64    `bson:"frequency"`
+	Frequency          int      `bson:"frequency"`
 	Regions            []string `bson:"regions"`
 	RegionsEachTime    int      `bson:"regionseachtime"`
 	Enabled            bool     `bson:"enabled"`
@@ -167,7 +167,7 @@ func Connect() {
 	var dbProtocol string
 
 	if dbProtDnsSeedFlag == "1" {
-		dbProtocol = "mongodb+svr://"
+		dbProtocol = "mongodb+srv://"
 	} else {
 		dbProtocol = "mongodb://"
 	}
