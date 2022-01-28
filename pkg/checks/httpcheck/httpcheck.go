@@ -40,7 +40,7 @@ func subTypeGetHead(url string, method string) (dbHelper.CheckOutcomeRecord, err
 	var client http.Client
 	var request *http.Request
 	var response *http.Response
-	var timeout = time.Duration(5 * time.Second)
+	var timeout = time.Duration(15 * time.Second) //quick fix for issue #14 - https://github.com/flevanti/brainyping-golang/issues/14
 	var returnedValue dbHelper.CheckOutcomeRecord
 
 	cookieJar, err = cookiejar.New(nil)
