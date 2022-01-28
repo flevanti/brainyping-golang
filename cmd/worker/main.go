@@ -106,8 +106,14 @@ func printGreetings() {
 
 func startTheWorkers(ctx context.Context, ch chan amqp.Delivery) {
 	fmt.Printf("STARTING %d WORKERS\n", WORKERSTOSTART)
+	//crate the metadata array for all the workers THEN starts the go routine
+	//this to avoid that a go routine could update the "ready" status while we perform the append
+	//being part of the bootstrap of the app it is not really a problem and if something goes wrong we can see it immediately...
+	//but we could have done it a bit better and more elegantly....
 	for i := 0; i < WORKERSTOSTART; i++ {
 		workersMetadata.workerMetadata = append(workersMetadata.workerMetadata, workerMetadataType{startTime: time.Now(), workerID: i})
+	}
+	for i := 0; i < WORKERSTOSTART; i++ {
 		go worker(ctx, ch, i)
 	}
 }
@@ -204,13 +210,13 @@ func allWorkersReady() {
 		}
 		if WORKERSTOSTART == ready {
 			fmt.Printf("\r✅  (it took %.3fs)\n", float64(time.Since(bootTime))/float64(time.Second))
+			os.Exit(0)
 			return
 		}
 		if time.Since(bootTime) > maxWait {
 			utilities.FailOnError(errors.New("workers not ready"))
 		}
-		percReady = float32(ready / WORKERSTOSTART * 100)
-		_ = percReady
+		percReady = float32(ready) / float32(WORKERSTOSTART) * 100
 		time.Sleep(time.Millisecond * 300)
 		fmt.Printf("%.2f%% (%d/%d)      \r", percReady, ready, WORKERSTOSTART)
 	} // end for
