@@ -1,8 +1,8 @@
 package main
 
 import (
-	"brainyping/pkg/dbHelper"
-	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/utilities"
 	"encoding/json"
 	"fmt"
@@ -23,7 +23,7 @@ func main() {
 	fmt.Printf("Boot time is %s\n", bootTime.Format(time.Stamp))
 
 	//count enabled checks to plan
-	count := dbHelper.CountEnabledChecks()
+	count := dbhelper.CountEnabledChecks()
 	if count == 0 {
 		fmt.Println("No checks to plan, bye bye.... ")
 		return
@@ -59,21 +59,21 @@ func startScheduler() {
 
 func scheduleChecks() {
 	var recScheduledTotal int64
-	var record dbHelper.CheckRecord
-	var recordQueued queueHelper.CheckRecordQueued
+	var record dbhelper.CheckRecord
+	var recordQueued queuehelper.CheckRecordQueued
 	var err error
 	var printLine = func(rec int64, memAlloc string) {
 		fmt.Printf("Checks scheduled %d (mem. %s)            \r", rec, memAlloc)
 	}
 
-	chRecords := make(chan dbHelper.CheckRecord)
+	chRecords := make(chan dbhelper.CheckRecord)
 	fmt.Println("Adding records to scheduler")
-	go dbHelper.RetrieveEnabledChecksToBeScheduled(chRecords)
+	go dbhelper.RetrieveEnabledChecksToBeScheduled(chRecords)
 
 	for record = range chRecords {
 		recScheduledTotal++
 		//add start time to the record to have a point of reference for future checks (and be able to reference a planned scheduled time instead of the time the check occurs)
-		recordQueued = queueHelper.CheckRecordQueued{Record: record}
+		recordQueued = queuehelper.CheckRecordQueued{Record: record}
 		_, err = scheduler.Every(record.Frequency).Minute().StartAt(time.Unix(record.StartSchedTimeUnix, 0)).Tag(record.CheckId).Do(queue, recordQueued)
 		utilities.FailOnError(err)
 		printLine(recScheduledTotal, utilities.GetMemoryStats("MB")["AllocUnit"])
@@ -102,7 +102,7 @@ func waitForSchedulerToStart(doneSignal <-chan int) {
 	} //end for
 }
 
-func queue(record queueHelper.CheckRecordQueued) {
+func queue(record queuehelper.CheckRecordQueued) {
 	if schedulerPaused {
 		atomic.AddInt64(&jobsNotQueuedBecausePaused, 1)
 		return
@@ -119,7 +119,7 @@ func queue(record queueHelper.CheckRecordQueued) {
 
 	//for the moment we queue the whole record scheduled,
 	//maybe later down the line we want to slim down...or enrich?
-	err = queueHelper.PublishRequestForNewCheck(recordJson)
+	err = queuehelper.PublishRequestForNewCheck(recordJson)
 	if err != nil {
 		log.Fatal(err)
 	}

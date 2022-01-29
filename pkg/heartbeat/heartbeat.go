@@ -1,4 +1,4 @@
-package heartBeat
+package heartbeat
 
 type HeartBeatRecord struct {
 	SessionID  string `bson:"sessionid"`

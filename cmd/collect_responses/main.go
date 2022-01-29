@@ -1,8 +1,8 @@
 package main
 
 import (
-	"brainyping/pkg/dbHelper"
-	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/utilities"
 	"context"
 	"encoding/json"
@@ -38,19 +38,19 @@ func main() {
 
 	//create the channel used by the queue consumer to buffer fetched messages
 	chReceive := make(chan amqp.Delivery, BUFFEREDCHANNELSIZE)
-	chSave := make(chan dbHelper.CheckResponseRecordDb)
+	chSave := make(chan dbhelper.CheckResponseRecordDb)
 
 	//pass the context cancel function to the close handler
 	closeHandler(cfunc)
 
 	//start the queue consumer...
-	go queueHelper.ConsumeQueueForResponsesToChecks(ctx, chReceive)
+	go queuehelper.ConsumeQueueForResponsesToChecks(ctx, chReceive)
 
-	dbHelper.Connect()
-	defer dbHelper.Disconnect()
+	dbhelper.Connect()
+	defer dbhelper.Disconnect()
 
-	if !dbHelper.CheckIfTableExists(dbHelper.TABLENAME_RESPONSES) {
-		utilities.FailOnError(dbHelper.CreateTable(dbHelper.TABLENAME_RESPONSES))
+	if !dbhelper.CheckIfTableExists(dbhelper.TABLENAME_RESPONSES) {
+		utilities.FailOnError(dbhelper.CreateTable(dbhelper.TABLENAME_RESPONSES))
 	}
 
 	//waiting for the world to end - instructions to run before closing...
@@ -67,9 +67,9 @@ func main() {
 
 }
 
-func receiveResponses(ctx context.Context, ch <-chan amqp.Delivery, chsave chan dbHelper.CheckResponseRecordDb) {
+func receiveResponses(ctx context.Context, ch <-chan amqp.Delivery, chsave chan dbhelper.CheckResponseRecordDb) {
 
-	var messageQueued queueHelper.CheckRecordQueued
+	var messageQueued queuehelper.CheckRecordQueued
 	var err error
 
 forloop:
@@ -98,7 +98,7 @@ forloop:
 
 }
 
-func saveResponseInBuffer(chsave chan dbHelper.CheckResponseRecordDb) {
+func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 	var lastSaved time.Time = time.Now()
 	for {
 		select {
@@ -113,13 +113,13 @@ func saveResponseInBuffer(chsave chan dbHelper.CheckResponseRecordDb) {
 }
 
 func saveResponsesInDatabase() {
-	err := dbHelper.SaveManyRecords(&saveBuffer, dbHelper.TABLENAME_RESPONSES)
+	err := dbhelper.SaveManyRecords(&saveBuffer, dbhelper.TABLENAME_RESPONSES)
 	utilities.FailOnError(err)
 	saveBuffer = nil
 }
 
-func prepareRecordToBeSaved(record queueHelper.CheckRecordQueued) dbHelper.CheckResponseRecordDb {
-	var response dbHelper.CheckResponseRecordDb
+func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.CheckResponseRecordDb {
+	var response dbhelper.CheckResponseRecordDb
 
 	response.CheckId = record.Record.CheckId
 	response.OwnerUid = record.Record.OwnerUid

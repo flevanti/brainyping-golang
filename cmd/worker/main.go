@@ -2,7 +2,7 @@ package main
 
 import (
 	"brainyping/pkg/checks"
-	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/utilities"
 	"context"
 	"encoding/json"
@@ -71,7 +71,7 @@ func main() {
 	throttler()
 
 	//start the queue consumer...
-	go queueHelper.ConsumeQueueForPendingChecks(ctx, ch)
+	go queuehelper.ConsumeQueueForPendingChecks(ctx, ch)
 
 	//show some statistics about the current session
 	go ShowWorkerStats(ctx, ch)
@@ -139,7 +139,7 @@ func waitingForTheWorldToEnd(ctx context.Context) {
 }
 func worker(ctx context.Context, ch <-chan amqp.Delivery, metadataIndex int) {
 
-	var messageQueued queueHelper.CheckRecordQueued
+	var messageQueued queuehelper.CheckRecordQueued
 	var err error
 
 	workersMetadata.workerMetadata[metadataIndex].workerReady = true
@@ -166,7 +166,7 @@ forloop:
 			messageQueued.RecordOutcome.Region = workerRegion
 
 			jsonRecord, _ := json.Marshal(messageQueued)
-			_ = queueHelper.PublishResponseForCheckProcessed(jsonRecord)
+			_ = queuehelper.PublishResponseForCheckProcessed(jsonRecord)
 
 		case <-ctx.Done():
 			workersMetadata.workerMetadata[metadataIndex].inGracePeriod = true
@@ -181,10 +181,10 @@ forloop:
 
 }
 
-func unmarshalMessageBody(body *[]byte, unmarshalledMessage *queueHelper.CheckRecordQueued) error {
+func unmarshalMessageBody(body *[]byte, unmarshalledMessage *queuehelper.CheckRecordQueued) error {
 	error := json.Unmarshal(*body, unmarshalledMessage)
 	if error != nil {
-		*unmarshalledMessage = queueHelper.CheckRecordQueued{}
+		*unmarshalledMessage = queuehelper.CheckRecordQueued{}
 		unmarshalledMessage.ErrorFatal = error.Error()
 		return error
 	}

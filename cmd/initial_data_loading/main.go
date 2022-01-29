@@ -1,8 +1,8 @@
 package main
 
 import (
-	"brainyping/pkg/dbHelper"
-	_ "brainyping/pkg/dotEnv"
+	"brainyping/pkg/dbhelper"
+	_ "brainyping/pkg/dotenv"
 	"brainyping/pkg/utilities"
 	"bufio"
 	"fmt"
@@ -24,13 +24,13 @@ func main() {
 	timeStart := time.Now()
 	fmt.Println("Process started at ", timeStart.Format(time.ANSIC))
 	fmt.Println("Current memory usage: ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
-	dbHelper.Connect()
-	defer dbHelper.Disconnect()
+	dbhelper.Connect()
+	defer dbhelper.Disconnect()
 
-	if !dbHelper.CheckIfTableExists(dbHelper.TABLENAME_CHECKS) {
-		utilities.FailOnError(dbHelper.CreateTable(dbHelper.TABLENAME_CHECKS))
+	if !dbhelper.CheckIfTableExists(dbhelper.TABLENAME_CHECKS) {
+		utilities.FailOnError(dbhelper.CreateTable(dbhelper.TABLENAME_CHECKS))
 	} else {
-		dbHelper.DeleteAllChecksByOwnerUid(OWNERUID)
+		dbhelper.DeleteAllChecksByOwnerUid(OWNERUID)
 	}
 
 	readAndWrite()
@@ -50,7 +50,7 @@ func readAndWrite() {
 	var recsInBufferList int  //records in list to be saved
 	var creationTimeUnix int64 = time.Now().Unix()
 	var startSchedTimeUnix int64 = time.Now().Unix()
-	var record dbHelper.CheckRecord
+	var record dbhelper.CheckRecord
 	var recordsInCurrentSecond int
 
 	file, err := os.Open("siteslist.txt")
@@ -71,10 +71,10 @@ func readAndWrite() {
 		linesReadFromFile++ //Lines read from the file
 
 		//make sure record is empty
-		record = dbHelper.CheckRecord{}
+		record = dbhelper.CheckRecord{}
 
 		//HTTPS HEAD
-		record = dbHelper.CheckRecord{
+		record = dbhelper.CheckRecord{
 			CheckId:            fmt.Sprint("RECID-", recsSaved),
 			Host:               "https://" + scanner.Text(),
 			Port:               443,
@@ -103,7 +103,7 @@ func readAndWrite() {
 		recsInBufferList++
 
 		if recsInBufferList >= BULKSAVEBATCHSIZE {
-			err := dbHelper.SaveManyRecords(&recordsToSave, dbHelper.TABLENAME_CHECKS) // pass by reference to save some memory?
+			err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TABLENAME_CHECKS) // pass by reference to save some memory?
 			utilities.FailOnError(err)
 			//cleaning up...
 			recordsToSave = nil  //empty slice - save some memory!
@@ -119,7 +119,7 @@ func readAndWrite() {
 
 	//make sure to flush buffered records not yet saved...
 	if recsInBufferList > 0 {
-		err := dbHelper.SaveManyRecords(&recordsToSave, dbHelper.TABLENAME_CHECKS)
+		err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TABLENAME_CHECKS)
 		utilities.FailOnError(err)
 		fmt.Println("Buffered records left behind flushed to db!")
 		recordsToSave = nil //empty slice - save some memory!

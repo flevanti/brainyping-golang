@@ -1,4 +1,4 @@
-package dotEnv
+package dotenv
 
 import (
 	"github.com/joho/godotenv"

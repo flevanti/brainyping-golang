@@ -1,7 +1,7 @@
-package dbHelper
+package dbhelper
 
 import (
-	_ "brainyping/pkg/dotEnv"
+	_ "brainyping/pkg/dotenv"
 	"brainyping/pkg/utilities"
 	"context"
 	"errors"
