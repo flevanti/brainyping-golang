@@ -7,20 +7,40 @@ import (
 	"github.com/flevanti/bisonmigration"
 )
 
+const databaseName = bisonmigration.MigrationAppDefaultDatabase
+const collectionName = bisonmigration.MigrationAppDefaultCollection
+
+var sequenceStrictnessFlags = []string{
+	bisonmigration.SequenceStrictnessNoLateComers,
+	bisonmigration.SequenceStrictnessNoDuplicates,
+}
+
 func main() {
-	bisonmigration.MigrationAppConfig(bisonmigration.MigrationAppDefaultDatabase, bisonmigration.MigrationAppDefaultCollection, dbhelper.GetClient())
+
+	bisonmigration.MigrationEngineInitialise(databaseName, collectionName, dbhelper.GetClient(), sequenceStrictnessFlags)
 	greetings()
 	showPendingMigrations()
 
 }
 
 func greetings() {
-	//fmt.Println("🅱🅸🆂🅾🅽 🅼🅸🅶🆁🅰🆃🅸🅾🅽")
 	fmt.Println("-------------------------------------")
 	fmt.Println("   B I S O N   M I G R A T I O N S   ")
 	fmt.Println("-------------------------------------")
 
 	fmt.Printf("Migrations: %d pending, %d processed, %d registered\n", bisonmigration.GetMigrationsPendingCount(), bisonmigration.GetMigrationsProcessedCount(), bisonmigration.GetMigrationsRegisteredCount())
+	if bisonmigration.GetMigrationAppDatabaseExists() {
+		fmt.Printf("Migration database [%s] exists", databaseName)
+	} else {
+		fmt.Printf("Migration database [%s] does not exist and it will be created", databaseName)
+	}
+	fmt.Println()
+	if bisonmigration.GetMigrationAppCollectionExists() {
+		fmt.Printf("Migration collection [%s] exists", collectionName)
+	} else {
+		fmt.Printf("Migration collection [%s] does not exist and it will be created", collectionName)
+	}
+	fmt.Println()
 }
 
 func showPendingMigrations() {
@@ -31,18 +51,6 @@ func showPendingMigrations() {
 	}
 }
 
-// here we are writing a migration tool....
-// it was Christmas 2018 the last time I wrote a migration tool from scratch in PHP
-// for an application using the drupal 7 framework.
-// the embedded system to deploy changes was so strange and prone to conflict during merge
-// that it was literally blocking deployments as soon as the dev team started to grow
-// At that time I took inspiration from the Laravel migration system and it was simple and worked (still working actually!)
-// very well
-//
-// unfortunately here we have a problem, mainly because - as part of the tech stack - we are using mongodb
-// and it doesn't really offer as far as I know native scripting (like sql) to interact with the db to insert/alter records or structure.
-//
-// So to avoid loosing too much time with something not part of the core system we will do something dirty but hopefully keeping it isolated
-// I was initially thinking of having separate files with specific naming convention like "[timestamp]_somethingmeaninful.go"
-// and then looping the files and call a function "[filename]_up()' to run the migration but then I realised that being go files they will be compiled/included
-// in the binary
+func showOptions() {
+	//show a simple menu for interaction...
+}
