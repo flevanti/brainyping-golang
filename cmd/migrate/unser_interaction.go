@@ -18,7 +18,8 @@ func readUserInput(textToShow string) string {
 	fmt.Print(textToShow, " >  ")
 	text, err := reader.ReadString('\n')
 	utilities.FailOnError(err)
-	return strings.Replace(text, "\n", "", -1)
+
+	return strings.Trim(text, " \n\t")
 }
 
 func greetings() {
@@ -26,20 +27,22 @@ func greetings() {
 	fmt.Println("   B I S O N   M I G R A T I O N S   ")
 	fmt.Println("-------------------------------------")
 
-	fmt.Printf("Migrations: %d pending, %d processed, %d registered\n", bisonmigration.GetMigrationsPendingCount(), bisonmigration.GetMigrationsProcessedCount(), bisonmigration.GetMigrationsRegisteredCount())
-	if bisonmigration.GetMigrationAppDatabaseExists() {
-		fmt.Printf("Migration database [%s] exists", databaseName)
-	} else {
-		fmt.Printf("Migration database [%s] does not exist and it will be created", databaseName)
-	}
-	fmt.Println()
-	if bisonmigration.GetMigrationAppCollectionExists() {
-		fmt.Printf("Migration collection [%s] exists", collectionName)
-	} else {
-		fmt.Printf("Migration collection [%s] does not exist and it will be created", collectionName)
+	fmt.Printf("Database used by the migration engine is [%s]", databaseName)
+	if !bisonmigration.GetMigrationAppDatabaseExists() {
+		fmt.Printf(" - It does not exist and it will be created")
 	}
 	fmt.Println()
 
+	fmt.Printf("Collection used by the migration engine is [%s]", collectionName)
+	if !bisonmigration.GetMigrationAppCollectionExists() {
+		fmt.Printf(" - It does not exists and it will be created")
+	}
+
+	fmt.Println()
+	fmt.Println()
+
+	fmt.Printf("Migrations: %d pending, %d processed, %d registered\n", bisonmigration.GetMigrationsPendingCount(), bisonmigration.GetMigrationsProcessedCount(), bisonmigration.GetMigrationsRegisteredCount())
+	fmt.Println()
 }
 
 func userInteractionJourneyStartsHere() {
@@ -62,14 +65,26 @@ func userInteractionJourneyStartsHere() {
 		case "3":
 			showRegisteredMigrations()
 			break
+		case "4":
+			_ = runPendingMigratoins()
+			break
 		case "9":
 			createNewStubMigrationFile()
+			break
+		case "c":
+			showConnectionsLabels()
 			break
 		default:
 			fmt.Println("Option unknown, please try again")
 		}
 	}
 
+}
+
+func showConnectionsLabels() {
+	for _, v := range bisonmigration.GetConnectionsLabels() {
+		fmt.Printf("%s\n", v)
+	}
 }
 
 func createNewStubMigrationFile() {
@@ -155,7 +170,8 @@ func showMainMenu() {
 	fmt.Println("4 run pending migrations\n5 run specific migration")
 	fmt.Println("6 rollback last batch\n7 rollback ONE specific migration")
 	fmt.Println("8 rollback TO a specific migration\n9 create a new stub migration file")
-	fmt.Println("q Quit")
+	fmt.Println("c show db connections labels")
+	fmt.Println("q quit")
 }
 
 func showPendingMigrations() {

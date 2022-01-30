@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const databaseName = bisonmigration.MigrationAppDefaultDatabase
+const databaseName = dbhelper.DATABASE //keep the migrations collection in the main db
 const collectionName = bisonmigration.MigrationAppDefaultCollection
 const migrationsFilesPath = "pkg/migrations/"
 
@@ -27,9 +27,21 @@ func main() {
 	bisonmigration.MigrationEngineInitialise(databaseName, collectionName, dbhelper.GetClient(), sequenceStrictnessFlags)
 	migrationsFolderExists = checkIfMigrationsFolderExists()
 
+	registerDbConnections()
+
 	greetings()
 	showPendingMigrations()
+
+	//this function will start the interactive menu in the terminal
+	//so no other logic should be added beyond this point, it won't be processed....
 	userInteractionJourneyStartsHere()
+}
+
+func registerDbConnections() {
+	bisonmigration.RegisterDbConnection("main", dbhelper.GetClient())
+	//...
+	//...
+
 }
 
 func checkIfMigrationsFolderExists() bool {
@@ -53,4 +65,9 @@ func createNewMigrationFile(filename, sequence, name string) error {
 
 	return ioutil.WriteFile(fmt.Sprint(migrationsFilesPath, "/", filename), []byte(body), 0755)
 
+}
+
+func runPendingMigratoins() error {
+	bisonmigration.RunPendingMigratoins()
+	return nil
 }
