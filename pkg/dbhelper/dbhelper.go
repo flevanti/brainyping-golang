@@ -175,7 +175,7 @@ func Connect() {
 	ctx = context.Background()
 	//var dbDbName = os.Getenv("DBDBNAME")
 	clientOptions := options.Client().
-		ApplyURI(dbProtocol + dbUser + ":" + dbPass + "@" + dbUrl + "/?retryWrites=true&w=majority")
+		ApplyURI(dbProtocol + dbUser + ":" + dbPass + "@" + dbUrl + "?retryWrites=true&w=majority")
 
 	client, err = mongo.Connect(context.Background(), clientOptions)
 	if err != nil {

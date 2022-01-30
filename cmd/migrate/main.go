@@ -3,13 +3,20 @@ package main
 import (
 	"brainyping/pkg/dbhelper"
 	_ "brainyping/pkg/migrations"
+	"brainyping/pkg/utilities"
+	"errors"
 	"fmt"
 	"github.com/flevanti/bisonmigration"
+	"io/ioutil"
+	"os"
+	"strings"
 )
 
 const databaseName = bisonmigration.MigrationAppDefaultDatabase
 const collectionName = bisonmigration.MigrationAppDefaultCollection
+const migrationsFilesPath = "pkg/migrations/"
 
+var migrationsFolderExists bool
 var sequenceStrictnessFlags = []string{
 	bisonmigration.SequenceStrictnessNoLateComers,
 	bisonmigration.SequenceStrictnessNoDuplicates,
@@ -18,39 +25,32 @@ var sequenceStrictnessFlags = []string{
 func main() {
 
 	bisonmigration.MigrationEngineInitialise(databaseName, collectionName, dbhelper.GetClient(), sequenceStrictnessFlags)
+	migrationsFolderExists = checkIfMigrationsFolderExists()
+
 	greetings()
 	showPendingMigrations()
+	userInteractionJourneyStartsHere()
+}
+
+func checkIfMigrationsFolderExists() bool {
+	_, err := os.Stat(migrationsFilesPath)
+	if err == nil {
+		return true
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		//unexpected error
+		utilities.FailOnError(err)
+	}
+
+	return false
 
 }
 
-func greetings() {
-	fmt.Println("-------------------------------------")
-	fmt.Println("   B I S O N   M I G R A T I O N S   ")
-	fmt.Println("-------------------------------------")
+func createNewMigrationFile(filename, sequence, name string) error {
+	body := template
+	body = strings.ReplaceAll(body, "{{sequence}}", sequence)
+	body = strings.ReplaceAll(body, "{{name}}", name)
 
-	fmt.Printf("Migrations: %d pending, %d processed, %d registered\n", bisonmigration.GetMigrationsPendingCount(), bisonmigration.GetMigrationsProcessedCount(), bisonmigration.GetMigrationsRegisteredCount())
-	if bisonmigration.GetMigrationAppDatabaseExists() {
-		fmt.Printf("Migration database [%s] exists", databaseName)
-	} else {
-		fmt.Printf("Migration database [%s] does not exist and it will be created", databaseName)
-	}
-	fmt.Println()
-	if bisonmigration.GetMigrationAppCollectionExists() {
-		fmt.Printf("Migration collection [%s] exists", collectionName)
-	} else {
-		fmt.Printf("Migration collection [%s] does not exist and it will be created", collectionName)
-	}
-	fmt.Println()
-}
+	return ioutil.WriteFile(fmt.Sprint(migrationsFilesPath, "/", filename), []byte(body), 0755)
 
-func showPendingMigrations() {
-	l := bisonmigration.GetMigrationsPending()
-	fmt.Println("Pending migrations")
-	for _, v := range l {
-		fmt.Printf("%-15d%-70s%s\n", v.Sequence, v.Name, v.UniqueId)
-	}
-}
-
-func showOptions() {
-	//show a simple menu for interaction...
 }
