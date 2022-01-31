@@ -37,6 +37,6 @@ func down_{{sequence}}(db *mongo.Client) error {
 //this is adding the migration to the migration engine
 //
 func init() {
-	bisonmigration.RegisterMigration({{sequence}}, "{{name}}", "{{dbConnLabel}}", up_{{sequence}}, down_{{sequence}})
+	bisonmigration.RegisterMigration({{sequence}}, "{{name}}", "{{connLabel}}", up_{{sequence}}, down_{{sequence}})
 }
 `

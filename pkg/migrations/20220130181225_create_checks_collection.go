@@ -10,12 +10,12 @@ import (
 )
 
 func up_20220130181225(db *mongo.Client) error {
-	if dbhelper.CheckIfTableExists(dbhelper.TABLENAME_CHECKS) {
+	if dbhelper.CheckIfTableExists(db, dbhelper.Database, dbhelper.TablenameChecks) {
 		return nil
 	}
 
-	opt := options.CreateCollectionOptions{}
-	err := db.Database(dbhelper.DATABASE).CreateCollection(context.TODO(), dbhelper.TABLENAME_CHECKS, &opt)
+	opts := options.CreateCollectionOptions{}
+	err := dbhelper.CreateTable(db, dbhelper.Database, dbhelper.TablenameChecks, &opts)
 	if err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func up_20220130181225(db *mongo.Client) error {
 			{"checkid", 1},
 		}},
 	}
-	_, err = db.Database(dbhelper.DATABASE).Collection(dbhelper.TABLENAME_CHECKS).Indexes().CreateMany(context.TODO(), indexModels)
+	_, err = db.Database(dbhelper.Database).Collection(dbhelper.TablenameChecks).Indexes().CreateMany(context.TODO(), indexModels)
 	if err != nil {
 		return err
 	}
@@ -35,10 +35,10 @@ func up_20220130181225(db *mongo.Client) error {
 }
 
 func down_20220130181225(db *mongo.Client) error {
-	if !dbhelper.CheckIfTableExists(dbhelper.TABLENAME_CHECKS) {
+	if !dbhelper.CheckIfTableExists(db, dbhelper.Database, dbhelper.TablenameChecks) {
 		return nil
 	}
-	err := db.Database(dbhelper.DATABASE).Collection(dbhelper.TABLENAME_CHECKS).Drop(context.TODO())
+	err := db.Database(dbhelper.Database).Collection(dbhelper.TablenameChecks).Drop(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -49,5 +49,5 @@ func down_20220130181225(db *mongo.Client) error {
 //this is adding the migration to the migration engine
 //
 func init() {
-	bisonmigration.RegisterMigration(20220130181225, "create_checks_collection", "main", up_20220130181225, down_20220130181225)
+	bisonmigration.RegisterMigration(20220130181225, "create_checks_collection", bisonmigration.DbConnectionLabelDefault, up_20220130181225, down_20220130181225)
 }

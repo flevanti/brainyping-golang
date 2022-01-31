@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const databaseName = dbhelper.DATABASE //keep the migrations collection in the main db
+const databaseName = dbhelper.Database //keep the migrations collection in the main app db
 const collectionName = bisonmigration.MigrationAppDefaultCollection
 const migrationsFilesPath = "pkg/migrations/"
 
@@ -38,7 +38,7 @@ func main() {
 }
 
 func registerDbConnections() {
-	bisonmigration.RegisterDbConnection("main", dbhelper.GetClient())
+	bisonmigration.RegisterDbConnection("*MAIN*", "Main connection used by the application", dbhelper.GetClient())
 	//...
 	//...
 
@@ -58,16 +58,34 @@ func checkIfMigrationsFolderExists() bool {
 
 }
 
-func createNewMigrationFile(filename, sequence, name string) error {
+func createNewMigrationFile(filename, sequence, connLabel, name string) error {
 	body := template
 	body = strings.ReplaceAll(body, "{{sequence}}", sequence)
 	body = strings.ReplaceAll(body, "{{name}}", name)
+	body = strings.ReplaceAll(body, "{{connLabel}}", connLabel)
 
 	return ioutil.WriteFile(fmt.Sprint(migrationsFilesPath, "/", filename), []byte(body), 0755)
 
 }
 
-func runPendingMigratoins() error {
-	bisonmigration.RunPendingMigratoins()
+func runPendingMigrations() error {
+	_ = bisonmigration.RunPendingMigrations()
 	return nil
+}
+
+func messageIfDbNotInitialised() bool {
+	if !bisonmigration.CheckIfDbIsInitialised() {
+		fmt.Println("Database not initialised, unable to proceed")
+		return true
+	}
+	return false
+}
+
+func messageIfDbConnectionsMissing() bool {
+	if len(bisonmigration.GetDbConnectionsMissing()) > 0 {
+		fmt.Println("Database connection required for pending migrations has not been registered")
+		fmt.Println("Unable to proceed")
+		return true
+	}
+	return false
 }

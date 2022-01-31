@@ -8,6 +8,7 @@ require (
 	github.com/go-co-op/gocron v1.11.0
 	github.com/joho/godotenv v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.10
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/streadway/amqp v1.0.0
 	go.mongodb.org/mongo-driver v1.8.2
 )
@@ -16,6 +17,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.14.2 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

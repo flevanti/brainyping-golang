@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"os"
 	"runtime"
@@ -27,8 +28,9 @@ func main() {
 	dbhelper.Connect()
 	defer dbhelper.Disconnect()
 
-	if !dbhelper.CheckIfTableExists(dbhelper.TABLENAME_CHECKS) {
-		utilities.FailOnError(dbhelper.CreateTable(dbhelper.TABLENAME_CHECKS))
+	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameChecks) {
+		opts := options.CreateCollectionOptions{}
+		utilities.FailOnError(dbhelper.CreateTable(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameChecks, &opts))
 	} else {
 		dbhelper.DeleteAllChecksByOwnerUid(OWNERUID)
 	}
@@ -103,7 +105,7 @@ func readAndWrite() {
 		recsInBufferList++
 
 		if recsInBufferList >= BULKSAVEBATCHSIZE {
-			err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TABLENAME_CHECKS) // pass by reference to save some memory?
+			err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TablenameChecks) // pass by reference to save some memory?
 			utilities.FailOnError(err)
 			//cleaning up...
 			recordsToSave = nil  //empty slice - save some memory!
@@ -119,7 +121,7 @@ func readAndWrite() {
 
 	//make sure to flush buffered records not yet saved...
 	if recsInBufferList > 0 {
-		err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TABLENAME_CHECKS)
+		err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TablenameChecks)
 		utilities.FailOnError(err)
 		fmt.Println("Buffered records left behind flushed to db!")
 		recordsToSave = nil //empty slice - save some memory!

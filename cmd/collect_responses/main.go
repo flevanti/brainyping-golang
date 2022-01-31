@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/streadway/amqp"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"os"
 	"os/signal"
 	"syscall"
@@ -49,8 +50,9 @@ func main() {
 	dbhelper.Connect()
 	defer dbhelper.Disconnect()
 
-	if !dbhelper.CheckIfTableExists(dbhelper.TABLENAME_RESPONSES) {
-		utilities.FailOnError(dbhelper.CreateTable(dbhelper.TABLENAME_RESPONSES))
+	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameResponse) {
+		opts := options.CreateCollectionOptions{}
+		utilities.FailOnError(dbhelper.CreateTable(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameResponse, &opts))
 	}
 
 	//waiting for the world to end - instructions to run before closing...
@@ -113,7 +115,7 @@ func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 }
 
 func saveResponsesInDatabase() {
-	err := dbhelper.SaveManyRecords(&saveBuffer, dbhelper.TABLENAME_RESPONSES)
+	err := dbhelper.SaveManyRecords(&saveBuffer, dbhelper.TablenameResponse)
 	utilities.FailOnError(err)
 	saveBuffer = nil
 }
