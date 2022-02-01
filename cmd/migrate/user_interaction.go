@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/flevanti/bisonmigration"
 	"github.com/olekukonko/tablewriter"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -56,7 +57,7 @@ func userInteractionJourneyStartsHere() {
 			break
 		case "q":
 			fmt.Println("Bye bye")
-			os.Exit(0)
+			exit()
 		case "shopen":
 			showPendingMigrations()
 			break
@@ -71,10 +72,56 @@ func userInteractionJourneyStartsHere() {
 				//something is missing, break!
 				break
 			}
-			_ = runPendingMigrations()
+			handlePostMigration(runPendingMigrations())
 			break
-		case "up1", "down", "down1", "downto":
-			fmt.Println("Not yet implemented, sorry")
+		case "up1":
+			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
+				//something is missing, break!
+				break
+			}
+			handlePostMigration(runSpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			break
+		case "upnext":
+			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
+				//something is missing, break!
+				break
+			}
+			handlePostMigration(runNextSingleMigration())
+			break
+		case "upto":
+			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
+				//something is missing, break!
+				break
+			}
+			handlePostMigration(runUpToSpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			break
+		case "down":
+			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
+				//something is missing, break!
+				break
+			}
+			handlePostMigration(rollbackLastBatchMigrations())
+			break
+		case "down1":
+			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
+				//something is missing, break!
+				break
+			}
+			handlePostMigration(rollbackASpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			break
+		case "downto":
+			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
+				//something is missing, break!
+				break
+			}
+			handlePostMigration(rollbackToSpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			break
+		case "downlast":
+			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
+				//something is missing, break!
+				break
+			}
+			handlePostMigration(rollbackSingleLastMigration())
 			break
 		case "new":
 			createNewStubMigrationFile()
@@ -87,9 +134,21 @@ func userInteractionJourneyStartsHere() {
 			break
 		default:
 			fmt.Println("Option unknown, please try again or `help`")
-		}
-	}
+		} //end switch case
+	} //end for loop
+}
 
+func exit() {
+	os.Exit(0)
+}
+
+func handlePostMigration(err error) {
+	if err != nil {
+		log.Println("ERROR WHILE PROCESSING MIGRATION")
+		log.Println(err.Error())
+	}
+	fmt.Println("Process completed, please check the output for possible errors")
+	exit()
 }
 
 func initialiseDb() {
@@ -174,6 +233,8 @@ func createNewStubMigrationFile() {
 		utilities.FailOnError(err)
 	}
 	fmt.Println("Migration file created successfully")
+	fmt.Println("Remember to quit/reopen the app to see the new files registered")
+
 }
 
 func checkIfMigrationFileExists(filename string) bool {
@@ -193,25 +254,21 @@ func showMainMenu() {
 	options = append(options, []string{"shopen", "Show pending migrations"})
 	options = append(options, []string{"shopro", "Show processed migrations"})
 	options = append(options, []string{"shoreg", "Show registered migrations"})
-	options = append(options, []string{"up", "process pending migrations"})
-	options = append(options, []string{"up1", "process specific migration"})
-	options = append(options, []string{"down", "Rollback last batch of migrations"})
-	options = append(options, []string{"down1", "Rollback A specific migration"})
-	options = append(options, []string{"downto", "Rollback TO a specific migration"})
+	options = append(options, []string{"up", "process all pending migrations"})
+	options = append(options, []string{"up1", "process a specific pending migration"})
+	options = append(options, []string{"upto", "process UP TO  a specific pending migration (included)"})
+	options = append(options, []string{"upnext", "process the next pending migration"})
+	options = append(options, []string{"down", "Rollback last batch of processed migrations"})
+	options = append(options, []string{"down1", "Rollback A specific processed migration"})
+	options = append(options, []string{"downto", "Rollback TO a specific processed migration (included)"})
+	options = append(options, []string{"downlast", "Rollback the last processed migration"})
 	options = append(options, []string{"new", "Create a new migration file"})
 	options = append(options, []string{"conn", "Show registered connections"})
 	options = append(options, []string{"dbinit", "Initialise migration database"})
+	options = append(options, []string{"help", "Show this help"})
 	options = append(options, []string{"q", "Quit"})
 
 	printTable([]string{"CMD", "DESCRIPTION"}, options)
-
-	//fmt.Println("\n\nMAIN MENU")
-	//fmt.Println("1 show pending migrations\n2 show processed migrations\n3 show registered migrations")
-	//fmt.Println("4 run pending migrations\n5 run specific migration")
-	//fmt.Println("6 rollback last batch\n7 rollback ONE specific migration")
-	//fmt.Println("8 rollback TO a specific migration\n9 create a new stub migration file")
-	//fmt.Println("c show db connections labels\ndbinit initialise migration app database")
-	//fmt.Println("q quit")
 }
 
 func showPendingMigrations() {
@@ -258,9 +315,9 @@ func showProcessedMigrations() {
 	fmt.Println("Processed migrations")
 	var tableData [][]string
 	for _, v := range l {
-		tableData = append(tableData, []string{strconv.FormatInt(v.Sequence, 10), v.Name, v.UniqueId, v.DbConnectionLabel, time.Unix(v.ProcessedTimeUnix, 0).Format(time.Stamp), strconv.FormatInt(v.ProcessedBatch, 10), strconv.FormatInt(v.ProcessedTimeSpentMs, 10)})
+		tableData = append(tableData, []string{strconv.FormatInt(v.Sequence, 10), v.Name, v.UniqueId, v.DbConnectionLabel, time.Unix(v.ProcessedTimeUnix, 0).Format(time.Stamp), strconv.FormatInt(v.ProcessedBatch, 10), strconv.FormatInt(v.ProcessedTimeSpentMs, 10), v.Mongo_Id})
 	}
-	printTable([]string{"SEQUENCE", "NAME", "UNIQUEID", "CONNECTION", "PROCESSED AT", "BATCH", "MS"}, tableData)
+	printTable([]string{"SEQUENCE", "NAME", "UNIQUEID", "CONNECTION", "PROCESSED AT", "BATCH", "MS", "MONGO _ID"}, tableData)
 
 }
 
@@ -276,7 +333,6 @@ func showConnectionsLabels() {
 func printTable(headers []string, data [][]string) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader(headers)
-	//table.SetBorder(false)
 	table.AppendBulk(data)
 	table.Render()
 }

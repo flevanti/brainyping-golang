@@ -38,7 +38,7 @@ func main() {
 }
 
 func registerDbConnections() {
-	bisonmigration.RegisterDbConnection("*MAIN*", "Main connection used by the application", dbhelper.GetClient())
+	bisonmigration.RegisterDbConnection("main", "Main connection used by the brainyping application", dbhelper.GetClient())
 	//...
 	//...
 
@@ -59,7 +59,7 @@ func checkIfMigrationsFolderExists() bool {
 }
 
 func createNewMigrationFile(filename, sequence, connLabel, name string) error {
-	body := template
+	body := bisonmigration.GetMigrationFileTemplate()
 	body = strings.ReplaceAll(body, "{{sequence}}", sequence)
 	body = strings.ReplaceAll(body, "{{name}}", name)
 	body = strings.ReplaceAll(body, "{{connLabel}}", connLabel)
@@ -68,9 +68,43 @@ func createNewMigrationFile(filename, sequence, connLabel, name string) error {
 
 }
 
+//
+// UP FUNCTIONS
+//
+
 func runPendingMigrations() error {
-	_ = bisonmigration.RunPendingMigrations()
-	return nil
+	return bisonmigration.RunPendingMigrations()
+}
+
+func runSpecificMigration(uniqueId string) error {
+	return bisonmigration.RunSpecificMigration(uniqueId)
+}
+
+func runNextSingleMigration() error {
+	return bisonmigration.RunNextSingleMigration()
+}
+
+func runUpToSpecificMigration(uniqueId string) error {
+	return bisonmigration.RunUpToSpecificMigration(uniqueId)
+}
+
+//
+// DOWN FUNCTIONS
+//
+func rollbackLastBatchMigrations() error {
+	return bisonmigration.RollbackLastBatchMigrations()
+}
+
+func rollbackSingleLastMigration() error {
+	return bisonmigration.RollbackSingleLastMigration()
+}
+
+func rollbackASpecificMigration(uniqueId string) error {
+	return bisonmigration.RollbackASpecificMigration(uniqueId)
+}
+
+func rollbackToSpecificMigration(uniqueId string) error {
+	return bisonmigration.RollbackToSpecificMigration(uniqueId)
 }
 
 func messageIfDbNotInitialised() bool {
