@@ -1,4 +1,4 @@
-package appTime
+package ntptime
 
 import (
 	"github.com/beevik/ntp"

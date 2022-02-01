@@ -1,10 +1,10 @@
 package netcheck
 
 import (
-	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/queuehelper"
 )
 
-func ProcessRequest(check *queueHelper.CheckRecordQueued) {
+func ProcessRequest(check *queuehelper.CheckRecordQueued) {
 	switch check.Record.SubType {
 	case "NET":
 		break

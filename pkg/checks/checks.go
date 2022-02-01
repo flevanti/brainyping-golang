@@ -2,13 +2,13 @@ package checks
 
 import (
 	"brainyping/pkg/checks/httpcheck"
-	"brainyping/pkg/dbHelper"
-	"brainyping/pkg/queueHelper"
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/queuehelper"
 	"time"
 )
 
-func ProcessCheck(check *queueHelper.CheckRecordQueued) error {
-	var checkResponse dbHelper.CheckOutcomeRecord
+func ProcessCheck(check *queuehelper.CheckRecordQueued) error {
+	var checkResponse dbhelper.CheckOutcomeRecord
 	var err error
 	var checkStart time.Time = time.Now()
 	switch check.Record.Type {

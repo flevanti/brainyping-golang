@@ -1,8 +1,8 @@
-package queueHelper
+package queuehelper
 
 import (
-	"brainyping/pkg/dbHelper"
-	_ "brainyping/pkg/dotEnv"
+	"brainyping/pkg/dbhelper"
+	_ "brainyping/pkg/dotenv"
 	"brainyping/pkg/utilities"
 	"context"
 	_ "github.com/joho/godotenv"
@@ -20,8 +20,8 @@ var queueBrokerChannel *amqp.Channel
 const PREFETCHCOUNT = 100
 
 type CheckRecordQueued struct {
-	Record                    dbHelper.CheckRecord        `bson:"record"`
-	RecordOutcome             dbHelper.CheckOutcomeRecord `bson:"recordoutcome"`
+	Record                    dbhelper.CheckRecord        `bson:"record"`
+	RecordOutcome             dbhelper.CheckOutcomeRecord `bson:"recordoutcome"`
 	ScheduledUnix             int64                       `bson:"scheduledunix"`
 	QueuedUnix                int64                       `bson:"queuedunix"`
 	ReceivedByWorkerUnix      int64                       `bson:"receivedyworkerunix"`

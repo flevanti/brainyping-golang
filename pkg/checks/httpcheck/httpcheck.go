@@ -1,7 +1,7 @@
 package httpcheck
 
 import (
-	"brainyping/pkg/dbHelper"
+	"brainyping/pkg/dbhelper"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,8 +12,8 @@ import (
 
 var userAgent string = "Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148" //this will trick the server to think we are a browser adding some more redirects sometimes
 
-func ProcessCheck(url string, method string, subType string) (dbHelper.CheckOutcomeRecord, error) {
-	var outcome dbHelper.CheckOutcomeRecord
+func ProcessCheck(url string, method string, subType string) (dbhelper.CheckOutcomeRecord, error) {
+	var outcome dbhelper.CheckOutcomeRecord
 	var err error
 
 	switch subType {
@@ -34,14 +34,14 @@ func ProcessCheck(url string, method string, subType string) (dbHelper.CheckOutc
 	return outcome, err
 }
 
-func subTypeGetHead(url string, method string) (dbHelper.CheckOutcomeRecord, error) {
+func subTypeGetHead(url string, method string) (dbhelper.CheckOutcomeRecord, error) {
 	var err error
 	var cookieJar *cookiejar.Jar
 	var client http.Client
 	var request *http.Request
 	var response *http.Response
 	var timeout = time.Duration(15 * time.Second) //quick fix for issue #14 - https://github.com/flevanti/brainyping-golang/issues/14
-	var returnedValue dbHelper.CheckOutcomeRecord
+	var returnedValue dbhelper.CheckOutcomeRecord
 
 	cookieJar, err = cookiejar.New(nil)
 	if err != nil {
@@ -108,8 +108,8 @@ func subTypeGetHead(url string, method string) (dbHelper.CheckOutcomeRecord, err
 //	return true, nil
 //}
 
-func subTypeRobotstxt(url string) (dbHelper.CheckOutcomeRecord, error) {
-	return dbHelper.CheckOutcomeRecord{}, nil
+func subTypeRobotstxt(url string) (dbhelper.CheckOutcomeRecord, error) {
+	return dbhelper.CheckOutcomeRecord{}, nil
 	//timeout := time.Duration(3 * time.Second)
 	//client := http.Client{
 	//	Timeout: timeout,
@@ -124,8 +124,8 @@ func subTypeRobotstxt(url string) (dbHelper.CheckOutcomeRecord, error) {
 	//return true, nil
 }
 
-func redirectionsToListRecursive(resp *http.Response, history *[]dbHelper.RedirectHistory) {
-	var historyElement dbHelper.RedirectHistory
+func redirectionsToListRecursive(resp *http.Response, history *[]dbhelper.RedirectHistory) {
+	var historyElement dbhelper.RedirectHistory
 
 	if resp.Request.Response != nil {
 		redirectionsToListRecursive(resp.Request.Response, history)

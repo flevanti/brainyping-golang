@@ -1,10 +1,9 @@
-package dbHelper
+package dbhelper
 
 import (
-	_ "brainyping/pkg/dotEnv"
+	_ "brainyping/pkg/dotenv"
 	"brainyping/pkg/utilities"
 	"context"
-	"errors"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -90,55 +89,41 @@ func init() {
 	Connect()
 }
 
-const DATABASE = "brainyping"
-const TABLENAME_CHECKS = "checks"
-const TABLENAME_RESPONSES = "responses"
-const TABLENAME_HB = "heartbeats"
-
-func EmptyTable(t string) {
-	if !CheckIfTableExists(t) {
-		utilities.FailOnError(errors.New("Unable to empty table [" + t + "], table not found"))
-	}
-	//mongo does not have a "truncate" command and the common approach is to delete everything, it could be slow... so we remove and recreate the collection
-	//delete collection
-	err := DeleteTable(t)
-	utilities.FailOnError(err)
-
-	//create collection
-	err = CreateTable(t)
-	utilities.FailOnError(err)
-
-	//TOO SLOW...WHEN COLLECTION IS BIG
-	//_, err := client.Database(DATABASE).Collection(t).DeleteMany(ctx, bson.M{})
-
-	utilities.FailOnError(err)
-}
+const Database = "brainyping"
+const TablenameChecks = "checks"
+const TablenameResponse = "responses"
+const TablenameHb = "heartbeats"
 
 func DeleteAllChecksByOwnerUid(ownerUid string) {
-	d, err := client.Database(DATABASE).Collection(TABLENAME_CHECKS).DeleteMany(ctx, bson.M{"owneruid": bson.M{"$eq": ownerUid}})
+	d, err := client.Database(Database).Collection(TablenameChecks).DeleteMany(ctx, bson.M{"owneruid": bson.M{"$eq": ownerUid}})
 	_ = d
 	utilities.FailOnError(err)
 }
 
-func DeleteTable(t string) error {
-	return client.Database(DATABASE).Collection(t).Drop(ctx)
+func DeleteTable(dbClient *mongo.Client, dbName string, tableName string) error {
+	return dbClient.Database(dbName).Collection(tableName).Drop(ctx)
 }
 
-func CreateTable(t string) error {
-	return client.Database(DATABASE).CreateCollection(ctx, t)
+func CreateTable(dbClient *mongo.Client, dbName string, tableName string, opts *options.CreateCollectionOptions) error {
+	return dbClient.Database(dbName).CreateCollection(ctx, tableName, opts)
 }
 
-func CheckIfTableExists(t string) bool {
-	for _, v := range TablesList() {
-		if t == v {
+func CreateIndexes(dbClient *mongo.Client, dbName string, tableName string, indexModels []mongo.IndexModel) error {
+	_, err := dbClient.Database(dbName).Collection(tableName).Indexes().CreateMany(context.TODO(), indexModels)
+	return err
+}
+
+func CheckIfTableExists(dbClient *mongo.Client, dbName string, tableName string) bool {
+	for _, v := range TablesList(dbClient, dbName) {
+		if tableName == v {
 			return true
 		}
 	}
 	return false
 }
 
-func TablesList() []string {
-	list, err := client.Database(DATABASE).ListCollectionNames(ctx, bson.M{})
+func TablesList(dbClient *mongo.Client, dbName string) []string {
+	list, err := dbClient.Database(dbName).ListCollectionNames(ctx, bson.M{})
 	utilities.FailOnError(err)
 	return list
 }
@@ -175,7 +160,7 @@ func Connect() {
 	ctx = context.Background()
 	//var dbDbName = os.Getenv("DBDBNAME")
 	clientOptions := options.Client().
-		ApplyURI(dbProtocol + dbUser + ":" + dbPass + "@" + dbUrl + "/?retryWrites=true&w=majority")
+		ApplyURI(dbProtocol + dbUser + ":" + dbPass + "@" + dbUrl + "?retryWrites=true&w=majority")
 
 	client, err = mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
@@ -194,7 +179,7 @@ func Disconnect() {
 }
 
 func SaveManyRecords(records *[]interface{}, table string) error {
-	coll := GetClient().Database(DATABASE).Collection(table)
+	coll := GetClient().Database(Database).Collection(table)
 
 	_, err := coll.InsertMany(ctx, *records)
 	if err != nil {
