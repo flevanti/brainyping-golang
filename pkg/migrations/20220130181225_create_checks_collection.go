@@ -10,12 +10,12 @@ import (
 )
 
 func up_20220130181225(db *mongo.Client) error {
-	if dbhelper.CheckIfTableExists(db, dbhelper.Database, dbhelper.TablenameChecks) {
+	if dbhelper.CheckIfTableExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameChecks) {
 		return nil
 	}
 
 	opts := options.CreateCollectionOptions{}
-	err := dbhelper.CreateTable(db, dbhelper.Database, dbhelper.TablenameChecks, &opts)
+	err := dbhelper.CreateTable(db, dbhelper.GetDatabaseName(), dbhelper.TablenameChecks, &opts)
 	if err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func up_20220130181225(db *mongo.Client) error {
 			{"checkid", 1},
 		}},
 	}
-	_, err = db.Database(dbhelper.Database).Collection(dbhelper.TablenameChecks).Indexes().CreateMany(context.TODO(), indexModels)
+	_, err = db.Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameChecks).Indexes().CreateMany(context.TODO(), indexModels)
 	if err != nil {
 		return err
 	}
@@ -35,10 +35,10 @@ func up_20220130181225(db *mongo.Client) error {
 }
 
 func down_20220130181225(db *mongo.Client) error {
-	if !dbhelper.CheckIfTableExists(db, dbhelper.Database, dbhelper.TablenameChecks) {
+	if !dbhelper.CheckIfTableExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameChecks) {
 		return nil
 	}
-	err := db.Database(dbhelper.Database).Collection(dbhelper.TablenameChecks).Drop(context.TODO())
+	err := db.Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameChecks).Drop(context.TODO())
 	if err != nil {
 		return err
 	}

@@ -50,9 +50,9 @@ func main() {
 	dbhelper.Connect()
 	defer dbhelper.Disconnect()
 
-	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameResponse) {
+	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
 		opts := options.CreateCollectionOptions{}
-		utilities.FailOnError(dbhelper.CreateTable(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameResponse, &opts))
+		utilities.FailOnError(dbhelper.CreateTable(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &opts))
 	}
 
 	//waiting for the world to end - instructions to run before closing...
@@ -115,7 +115,7 @@ func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 }
 
 func saveResponsesInDatabase() {
-	err := dbhelper.SaveManyRecords(&saveBuffer, dbhelper.TablenameResponse)
+	err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &saveBuffer)
 	utilities.FailOnError(err)
 	saveBuffer = nil
 }

@@ -12,7 +12,6 @@ import (
 	"strings"
 )
 
-const databaseName = dbhelper.Database //keep the migrations collection in the main app db
 const collectionName = bisonmigration.MigrationAppDefaultCollection
 const migrationsFilesPath = "pkg/migrations/"
 
@@ -22,9 +21,14 @@ var sequenceStrictnessFlags = []string{
 	bisonmigration.SequenceStrictnessNoDuplicates,
 }
 
+func GetDatabaseName() string {
+	//use main app database by default, use a wrapper to retrieve it so it is easy to change if we want.
+	return dbhelper.GetDatabaseName()
+}
+
 func main() {
 
-	bisonmigration.MigrationEngineInitialise(databaseName, collectionName, dbhelper.GetClient(), sequenceStrictnessFlags)
+	bisonmigration.MigrationEngineInitialise(GetDatabaseName(), collectionName, dbhelper.GetClient(), sequenceStrictnessFlags)
 	migrationsFolderExists = checkIfMigrationsFolderExists()
 
 	registerDbConnections()

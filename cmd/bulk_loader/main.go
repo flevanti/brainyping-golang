@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"os"
 	"runtime"
@@ -17,7 +16,7 @@ import (
 var recordsToSave []interface{}
 
 const BULKSAVEBATCHSIZE int = 1000 //speed up a bit the import with multiple inserts (please note that each imported record has nth records in the db)
-const RECORDSPERSECOND int = 10    //this will determine
+const RECORDSPERSECOND int = 10    //this will determine how many records we are scheduling each second
 const OWNERUID string = "INIT-DATA-LOAD"
 
 func main() {
@@ -27,13 +26,6 @@ func main() {
 	fmt.Println("Current memory usage: ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
 	dbhelper.Connect()
 	defer dbhelper.Disconnect()
-
-	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameChecks) {
-		opts := options.CreateCollectionOptions{}
-		utilities.FailOnError(dbhelper.CreateTable(dbhelper.GetClient(), dbhelper.Database, dbhelper.TablenameChecks, &opts))
-	} else {
-		dbhelper.DeleteAllChecksByOwnerUid(OWNERUID)
-	}
 
 	readAndWrite()
 	timeElapsed := int(time.Since(timeStart).Seconds())
@@ -105,7 +97,7 @@ func readAndWrite() {
 		recsInBufferList++
 
 		if recsInBufferList >= BULKSAVEBATCHSIZE {
-			err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TablenameChecks) // pass by reference to save some memory?
+			err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameChecks, &recordsToSave) // pass by reference to save some memory?
 			utilities.FailOnError(err)
 			//cleaning up...
 			recordsToSave = nil  //empty slice - save some memory!
@@ -121,7 +113,7 @@ func readAndWrite() {
 
 	//make sure to flush buffered records not yet saved...
 	if recsInBufferList > 0 {
-		err := dbhelper.SaveManyRecords(&recordsToSave, dbhelper.TablenameChecks)
+		err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameChecks, &recordsToSave)
 		utilities.FailOnError(err)
 		fmt.Println("Buffered records left behind flushed to db!")
 		recordsToSave = nil //empty slice - save some memory!

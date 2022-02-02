@@ -29,7 +29,7 @@ func greetings() {
 	fmt.Println("   B I S O N   M I G R A T I O N S   ")
 	fmt.Println("-------------------------------------")
 
-	fmt.Printf("Database used by the migration engine is [%s]", databaseName)
+	fmt.Printf("Database used by the migration engine is [%s]", GetDatabaseName())
 	if !bisonmigration.GetMigrationAppDatabaseExists() {
 		fmt.Printf(" - It does not exist and it will be created")
 	}

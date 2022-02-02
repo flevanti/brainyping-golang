@@ -182,11 +182,11 @@ forloop:
 }
 
 func unmarshalMessageBody(body *[]byte, unmarshalledMessage *queuehelper.CheckRecordQueued) error {
-	error := json.Unmarshal(*body, unmarshalledMessage)
-	if error != nil {
+	err := json.Unmarshal(*body, unmarshalledMessage)
+	if err != nil {
 		*unmarshalledMessage = queuehelper.CheckRecordQueued{}
-		unmarshalledMessage.ErrorFatal = error.Error()
-		return error
+		unmarshalledMessage.ErrorFatal = err.Error()
+		return err
 	}
 	return nil
 }

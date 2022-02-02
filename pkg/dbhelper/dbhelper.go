@@ -36,8 +36,7 @@ type CheckRecord struct {
 }
 
 type CheckResponseRecordDb struct {
-	CheckId string `bson:"checkid"`
-
+	CheckId              string            `bson:"checkid"`
 	Region               string            `bson:"region"`
 	ScheduledTimeUnix    int64             `bson:"scheduledtimeunix"`
 	ScheduledTimeDelay   int64             `bson:"scheduledtimedelay"`
@@ -57,13 +56,6 @@ type CheckResponseRecordDb struct {
 	Message              string            `bson:"message"`
 	Redirects            int               `bson:"redirects"`
 	RedirectsHistory     []RedirectHistory `bson:"redirectshistory"`
-	//UpdatedUnix          int64             `bson:"updatedunix"`
-	//Name                 string            `bson:"name"`
-	//Host                 string            `bson:"host"`
-	//Port                 int               `bson:"port"`
-	//Type                 string            `bson:"type"`
-	//SubType              string            `bson:"subtype"`
-	//Frequency            int               `bson:"frequency"`
 }
 
 type CheckOutcomeRecord struct {
@@ -89,15 +81,13 @@ func init() {
 	Connect()
 }
 
-const Database = "brainyping"
 const TablenameChecks = "checks"
 const TablenameResponse = "responses"
-const TablenameHb = "heartbeats"
+const TablenameSettings = "settings"
+const TablenameHeartBeat = "heartbeat"
 
-func DeleteAllChecksByOwnerUid(ownerUid string) {
-	d, err := client.Database(Database).Collection(TablenameChecks).DeleteMany(ctx, bson.M{"owneruid": bson.M{"$eq": ownerUid}})
-	_ = d
-	utilities.FailOnError(err)
+func GetDatabaseName() string {
+	return os.Getenv("DBDBNAME")
 }
 
 func DeleteTable(dbClient *mongo.Client, dbName string, tableName string) error {
@@ -148,19 +138,17 @@ func Connect() {
 	var dbUser = os.Getenv("DBUSER")
 	var dbPass = os.Getenv("DBPASS")
 	var dbUrl = os.Getenv("DBURL")
-	var dbProtDnsSeedFlag = os.Getenv("DBPROTOCOLWITHDNSSEED")
 	var dbProtocol string
 
-	if dbProtDnsSeedFlag == "1" {
+	if os.Getenv("DBPROTOCOLWITHDNSSEED") == "1" {
 		dbProtocol = "mongodb+srv://"
 	} else {
 		dbProtocol = "mongodb://"
 	}
 
 	ctx = context.Background()
-	//var dbDbName = os.Getenv("DBDBNAME")
 	clientOptions := options.Client().
-		ApplyURI(dbProtocol + dbUser + ":" + dbPass + "@" + dbUrl + "?retryWrites=true&w=majority")
+		ApplyURI(dbProtocol + dbUser + ":" + dbPass + "@" + dbUrl + "/?retryWrites=true&w=majority")
 
 	client, err = mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
@@ -178,14 +166,19 @@ func Disconnect() {
 	}
 }
 
-func SaveManyRecords(records *[]interface{}, table string) error {
-	coll := GetClient().Database(Database).Collection(table)
+func SaveManyRecords(db string, collection string, records *[]interface{}) error {
+	coll := GetClient().Database(db).Collection(collection)
 
-	_, err := coll.InsertMany(ctx, *records)
+	res, err := coll.InsertMany(ctx, *records)
+	_ = res
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func DeleteRecordsByFieldValue(db string, collection string, field string, value interface{}) (*mongo.DeleteResult, error) {
+	return GetClient().Database(db).Collection(collection).DeleteOne(context.TODO(), bson.M{field: value})
 }
 
 func GetRecords() {
