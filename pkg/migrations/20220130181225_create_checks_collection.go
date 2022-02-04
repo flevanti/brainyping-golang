@@ -1,8 +1,10 @@
 package migrations
 
 import (
-	"brainyping/pkg/dbhelper"
 	"context"
+
+	"brainyping/pkg/dbhelper"
+
 	"github.com/flevanti/bisonmigration"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,14 +21,13 @@ func up_20220130181225(db *mongo.Client) error {
 	if err != nil {
 		return err
 	}
-	indexModels := []mongo.IndexModel{{
-		Keys: bson.D{
-			{"owneruid", 1},
-		}},
-		{Keys: bson.D{
-			{"checkid", 1},
-		}},
+
+	idxUnique := true
+	indexModels := []mongo.IndexModel{
+		{Keys: bson.D{{"owneruid", 1}}},
+		{Keys: bson.D{{"checkid", 1}}, Options: &options.IndexOptions{Unique: &idxUnique}},
 	}
+
 	_, err = db.Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameChecks).Indexes().CreateMany(context.TODO(), indexModels)
 	if err != nil {
 		return err
@@ -46,7 +47,7 @@ func down_20220130181225(db *mongo.Client) error {
 }
 
 //
-//this is adding the migration to the migration engine
+// this is adding the migration to the migration engine
 //
 func init() {
 	bisonmigration.RegisterMigration(20220130181225, "create_checks_collection", bisonmigration.DbConnectionLabelDefault, up_20220130181225, down_20220130181225)

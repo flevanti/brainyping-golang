@@ -1,18 +1,23 @@
 package main
 
 import (
-	"brainyping/pkg/dbhelper"
-	"brainyping/pkg/queuehelper"
-	"brainyping/pkg/utilities"
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/streadway/amqp"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/initapp"
+	"brainyping/pkg/queuehelper"
+	"brainyping/pkg/settings"
+	_ "brainyping/pkg/settings"
+	"brainyping/pkg/utilities"
+
+	"github.com/streadway/amqp"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type metadataType struct {
@@ -27,24 +32,22 @@ var endOfTheWorld bool
 var metadata metadataType
 var saveBuffer []interface{}
 
-const BUFFEREDCHANNELSIZE int = 100
-const GRACEPERIOD time.Duration = time.Second * 5
-const BULKSAVESIZE int = 1000
-const BULKSAVETHRESHOLDTIME time.Duration = time.Second * 10
-
 func main() {
-	//create the context
+	initapp.InitApp()
+	queuehelper.InitQueue()
+
+	// create the context
 	ctx, cfunc := context.WithCancel(context.Background())
 	defer cfunc()
 
-	//create the channel used by the queue consumer to buffer fetched messages
-	chReceive := make(chan amqp.Delivery, BUFFEREDCHANNELSIZE)
+	// create the channel used by the queue consumer to buffer fetched messages
+	chReceive := make(chan amqp.Delivery, settings.GetSettInt("RC_BUF_CH_SIZE"))
 	chSave := make(chan dbhelper.CheckResponseRecordDb)
 
-	//pass the context cancel function to the close handler
+	// pass the context cancel function to the close handler
 	closeHandler(cfunc)
 
-	//start the queue consumer...
+	// start the queue consumer...
 	go queuehelper.ConsumeQueueForResponsesToChecks(ctx, chReceive)
 
 	dbhelper.Connect()
@@ -55,7 +58,7 @@ func main() {
 		utilities.FailOnError(dbhelper.CreateTable(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &opts))
 	}
 
-	//waiting for the world to end - instructions to run before closing...
+	// waiting for the world to end - instructions to run before closing...
 	go waitingForTheWorldToEnd(ctx)
 
 	go ShowStatistics(ctx, chReceive, saveBuffer)
@@ -64,7 +67,7 @@ func main() {
 
 	go saveResponseInBuffer(chSave)
 
-	//wait forever!
+	// wait forever!
 	select {}
 
 }
@@ -90,13 +93,14 @@ forloop:
 			_ = response.Ack(false)
 		case <-ctx.Done():
 			metadata.inGracePeriod = true
-			if time.Since(metadata.lastMsgTime) > GRACEPERIOD {
+
+			if time.Since(metadata.lastMsgTime) > settings.GetSettDuration("RC_GRACE_PERIOD_SECONDS")*time.Second {
 				metadata.stopped = true
 				break forloop
 			}
 		default:
-		} //end select case
-	} //end for/loop [forloop]
+		} // end select case
+	} // end for/loop [forloop]
 
 }
 
@@ -106,7 +110,7 @@ func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 		select {
 		case record := <-chsave:
 			saveBuffer = append(saveBuffer, record)
-			if len(saveBuffer) >= BULKSAVESIZE || time.Since(lastSaved) > BULKSAVETHRESHOLDTIME {
+			if len(saveBuffer) >= settings.GetSettInt("RC_BULK_SAVE_SIZE") || time.Since(lastSaved) > settings.GetSettDuration("RC_SAVE_AUTO_FLUSH_MS")*time.Second {
 				saveResponsesInDatabase()
 			}
 		default:
@@ -160,10 +164,10 @@ func waitingForTheWorldToEnd(ctx context.Context) {
 	select {
 	case <-ctx.Done():
 		break
-		//not having a default make sure this is a blocking select/case until context is done...
+		// not having a default make sure this is a blocking select/case until context is done...
 	}
 
-	//set a global flag to true to acknowledge the world is ending...
+	// set a global flag to true to acknowledge the world is ending...
 	endOfTheWorld = true
 
 	for metadata.stopped == false {
@@ -173,7 +177,7 @@ func waitingForTheWorldToEnd(ctx context.Context) {
 	time.Sleep(time.Second * 2)
 	fmt.Print("\n\nBYE BYE\n\n")
 
-	//this is it, it has been fun!
+	// this is it, it has been fun!
 	os.Exit(0)
 
 }

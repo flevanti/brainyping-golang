@@ -1,28 +1,33 @@
 package main
 
 import (
-	"brainyping/pkg/dbhelper"
-	"brainyping/pkg/queuehelper"
-	"brainyping/pkg/utilities"
 	"encoding/json"
 	"fmt"
-	"github.com/go-co-op/gocron"
 	"log"
 	"sync/atomic"
 	"time"
+
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/initapp"
+	"brainyping/pkg/queuehelper"
+	_ "brainyping/pkg/settings"
+	"brainyping/pkg/utilities"
+
+	"github.com/go-co-op/gocron"
 )
 
 var scheduler *gocron.Scheduler
-var bootTime time.Time = time.Now()
 var jobsQueuedSinceBoot int64
 var jobsNotQueuedBecausePaused int64
-var schedulerPaused bool //this is not interacting with the scheduler directly but preventing it to push new cheduled jobs in the queue to be processed
+var schedulerPaused bool // this is not interacting with the scheduler directly but preventing it to push new cheduled jobs in the queue to be processed
 
 func main() {
+	initapp.InitApp()
+	queuehelper.InitQueue()
 	fmt.Println("SCHEDULER")
-	fmt.Printf("Boot time is %s\n", bootTime.Format(time.Stamp))
+	fmt.Printf("Boot time is %s\n", initapp.GetBootTime().Format(time.Stamp))
 
-	//count enabled checks to plan
+	// count enabled checks to plan
 	count := dbhelper.CountEnabledChecks()
 	if count == 0 {
 		fmt.Println("No checks to plan, bye bye.... ")
@@ -32,19 +37,19 @@ func main() {
 	fmt.Println(count, " checks with enabled status")
 
 	scheduler = gocron.NewScheduler(time.UTC)
-	//enforce uniqueness of tags that we are using as a way to retrieve a scheduled job later...
+	// enforce uniqueness of tags that we are using as a way to retrieve a scheduled job later...
 	scheduler.TagsUnique()
 
-	//put each check in the scheduler
+	// put each check in the scheduler
 	scheduleChecks()
 
-	//wait for all jobs to be started before accepting scheduled jobs
+	// wait for all jobs to be started before accepting scheduled jobs
 	schedulerPaused = true
-	//start the scheduler
+	// start the scheduler
 	startScheduler()
 	schedulerPaused = false
 
-	//done, show some statistics.... forever!
+	// done, show some statistics.... forever!
 	ShowMemoryStatsWhileSchedulerIsRunning()
 
 }
@@ -53,7 +58,7 @@ func startScheduler() {
 	doneSignal := make(chan int)
 	go waitForSchedulerToStart(doneSignal)
 	scheduler.StartAsync()
-	doneSignal <- 1 //this should stop the go routing waiting for the scheduler to start...
+	doneSignal <- 1 // this should stop the go routing waiting for the scheduler to start...
 	close(doneSignal)
 }
 
@@ -72,13 +77,13 @@ func scheduleChecks() {
 
 	for record = range chRecords {
 		recScheduledTotal++
-		//add start time to the record to have a point of reference for future checks (and be able to reference a planned scheduled time instead of the time the check occurs)
+		// add start time to the record to have a point of reference for future checks (and be able to reference a planned scheduled time instead of the time the check occurs)
 		recordQueued = queuehelper.CheckRecordQueued{Record: record}
 		_, err = scheduler.Every(record.Frequency).Minute().StartAt(time.Unix(record.StartSchedTimeUnix, 0)).Tag(record.CheckId).Do(queue, recordQueued)
 		utilities.FailOnError(err)
 		printLine(recScheduledTotal, utilities.GetMemoryStats("MB")["AllocUnit"])
 
-	} //end ch range
+	} // end ch range
 	fmt.Println()
 
 }
@@ -97,9 +102,9 @@ func waitForSchedulerToStart(doneSignal <-chan int) {
 			spinnerPosition++
 			fmt.Printf("\rStarting scheduler %s     ", spinner[spinnerPosition%len(spinner)])
 			time.Sleep(time.Millisecond * 150)
-		} //end select case
-		//nothing to do here I guess!
-	} //end for
+		} // end select case
+		// nothing to do here I guess!
+	} // end for
 }
 
 func queue(record queuehelper.CheckRecordQueued) {
@@ -109,16 +114,16 @@ func queue(record queuehelper.CheckRecordQueued) {
 	}
 	atomic.AddInt64(&jobsQueuedSinceBoot, 1)
 	record.QueuedUnix = time.Now().Unix()
-	record.ScheduledUnix = record.QueuedUnix //use the same time as the queued time, we don't have a better alternative right now.
+	record.ScheduledUnix = record.QueuedUnix // use the same time as the queued time, we don't have a better alternative right now.
 	var recordJson, err = json.Marshal(record)
 	if err != nil {
 		fmt.Println("🔴")
 		log.Fatal(err)
 	}
-	//TODO SEND THE SCHEDULED EVENT ALSO TO THE SCHEDULE PLAN...
+	// TODO SEND THE SCHEDULED EVENT ALSO TO THE SCHEDULE PLAN...
 
-	//for the moment we queue the whole record scheduled,
-	//maybe later down the line we want to slim down...or enrich?
+	// for the moment we queue the whole record scheduled,
+	// maybe later down the line we want to slim down...or enrich?
 	err = queuehelper.PublishRequestForNewCheck(recordJson)
 	if err != nil {
 		log.Fatal(err)
@@ -126,10 +131,10 @@ func queue(record queuehelper.CheckRecordQueued) {
 
 }
 
-//Ok so this is tricky and probably not necessary.
-//Unless the scheduled time is exactly the current timestamp 🍾
-//we will consider the scheduled time the nearest one in the past
-//we are basically assuming that we are a little behind schedule... not ahead....
+// Ok so this is tricky and probably not necessary.
+// Unless the scheduled time is exactly the current timestamp 🍾
+// we will consider the scheduled time the nearest one in the past
+// we are basically assuming that we are a little behind schedule... not ahead....
 //
 //
 // CURRENTLY DEPRECATED TO FIND A BETTER APPROACH OR IMPROVE THIS....
@@ -137,10 +142,10 @@ func calculateScheduledTime(startedAt *int64, frequency *int64) int64 {
 
 	currentTimeUnix := time.Now().Unix()
 
-	//add to the initial start time as many "frequency" as calculated dividing the difference in seconds between the start time and now
-	//basically ... start time is 100, frequency is 20, current time is 230, the nearest scheduled time in the past is 220.
+	// add to the initial start time as many "frequency" as calculated dividing the difference in seconds between the start time and now
+	// basically ... start time is 100, frequency is 20, current time is 230, the nearest scheduled time in the past is 220.
 
-	//oooh boy so many *****
+	// oooh boy so many *****
 	return *startedAt + *frequency*((currentTimeUnix-*startedAt) / *frequency)
 }
 
@@ -158,7 +163,7 @@ func ShowMemoryStatsWhileSchedulerIsRunning() {
 			jobsQueuedSinceBoot,
 			memoryStats["AllocUnit"],
 			memoryStats["NumGC"],
-			time.Since(bootTime)/time.Second*time.Second)
+			time.Since(initapp.GetBootTime())/time.Second*time.Second)
 
 		time.Sleep(time.Second * 1)
 	}

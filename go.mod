@@ -7,7 +7,6 @@ require (
 	github.com/flevanti/bisonmigration v0.1.0
 	github.com/go-co-op/gocron v1.11.0
 	github.com/joho/godotenv v1.4.0
-	github.com/mattn/go-sqlite3 v1.14.11
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/streadway/amqp v1.0.0
 	go.mongodb.org/mongo-driver v1.8.3

@@ -1,8 +1,10 @@
 package migrations
 
 import (
-	"brainyping/pkg/dbhelper"
 	"context"
+
+	"brainyping/pkg/dbhelper"
+
 	"github.com/flevanti/bisonmigration"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -47,7 +49,7 @@ func down_20220130181238(db *mongo.Client) error {
 }
 
 //
-//this is adding the migration to the migration engine
+// this is adding the migration to the migration engine
 //
 func init() {
 	bisonmigration.RegisterMigration(20220130181238, "create_responses_collection", bisonmigration.DbConnectionLabelDefault, up_20220130181238, down_20220130181238)

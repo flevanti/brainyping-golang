@@ -1,26 +1,24 @@
 package main
 
 import (
-	"brainyping/pkg/dbhelper"
-	_ "brainyping/pkg/dotenv"
-	"brainyping/pkg/utilities"
 	"bufio"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
 	"runtime"
 	"time"
+
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/initapp"
+	"brainyping/pkg/settings"
+	_ "brainyping/pkg/settings"
+	"brainyping/pkg/utilities"
 )
 
 var recordsToSave []interface{}
 
-const BULKSAVEBATCHSIZE int = 1000 //speed up a bit the import with multiple inserts (please note that each imported record has nth records in the db)
-const RECORDSPERSECOND int = 10    //this will determine how many records we are scheduling each second
-const OWNERUID string = "INIT-DATA-LOAD"
-
 func main() {
-
+	initapp.InitApp()
 	timeStart := time.Now()
 	fmt.Println("Process started at ", timeStart.Format(time.ANSIC))
 	fmt.Println("Current memory usage: ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
@@ -39,9 +37,9 @@ func main() {
 
 func readAndWrite() {
 
-	var linesReadFromFile int //records processed
-	var recsSaved int         //records saved to db
-	var recsInBufferList int  //records in list to be saved
+	var linesReadFromFile int // records processed
+	var recsSaved int         // records saved to db
+	var recsInBufferList int  // records in list to be saved
 	var creationTimeUnix int64 = time.Now().Unix()
 	var startSchedTimeUnix int64 = time.Now().Unix()
 	var record dbhelper.CheckRecord
@@ -51,23 +49,23 @@ func readAndWrite() {
 	if err != nil {
 		log.Fatalf("failed to open file")
 	}
-	//create a new scanner
+	// create a new scanner
 	scanner := bufio.NewScanner(file)
-	//define the splitting function (lines)
+	// define the splitting function (lines)
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
-		if recordsInCurrentSecond >= RECORDSPERSECOND/2 {
+		if recordsInCurrentSecond >= settings.GetSettInt("BL_RPS_SPREAD")/2 {
 			recordsInCurrentSecond = 0
 			startSchedTimeUnix--
 		}
 		recordsInCurrentSecond++
-		linesReadFromFile++ //Lines read from the file
+		linesReadFromFile++ // Lines read from the file
 
-		//make sure record is empty
+		// make sure record is empty
 		record = dbhelper.CheckRecord{}
 
-		//HTTPS HEAD
+		// HTTPS HEAD
 		record = dbhelper.CheckRecord{
 			CheckId:            fmt.Sprint("RECID-", recsSaved),
 			Host:               "https://" + scanner.Text(),
@@ -81,14 +79,14 @@ func readAndWrite() {
 			StartSchedTimeUnix: startSchedTimeUnix,
 			CreatedUnix:        creationTimeUnix,
 			UpdatedUnix:        creationTimeUnix,
-			OwnerUid:           OWNERUID,
+			OwnerUid:           settings.GetSettStr("BL_OWNERUID"),
 		}
 		record.Name = scanner.Text() + record.Type + record.SubType
 		recordsToSave = append(recordsToSave, record)
 		recsSaved++
 		recsInBufferList++
 
-		//HTTPS GET
+		// HTTPS GET
 		record.CheckId = fmt.Sprint("RECID-", recsSaved)
 		record.SubType = "GET"
 		record.Name = scanner.Text() + record.Type + record.SubType
@@ -96,27 +94,27 @@ func readAndWrite() {
 		recsSaved++
 		recsInBufferList++
 
-		if recsInBufferList >= BULKSAVEBATCHSIZE {
+		if recsInBufferList >= settings.GetSettInt("BL_BULK_SAVE_SIZE") {
 			err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameChecks, &recordsToSave) // pass by reference to save some memory?
 			utilities.FailOnError(err)
-			//cleaning up...
-			recordsToSave = nil  //empty slice - save some memory!
-			recsInBufferList = 0 //reset list counter
+			// cleaning up...
+			recordsToSave = nil  // empty slice - save some memory!
+			recsInBufferList = 0 // reset list counter
 		}
 
-		//print some information to avoid thinking we are stuck... please not the "\r"
+		// print some information to avoid thinking we are stuck... please not the "\r"
 		fmt.Printf("\r%d lines read from file, %d records saved to db ", linesReadFromFile, recsSaved)
 
 	} // for scanner
 
 	fmt.Println()
 
-	//make sure to flush buffered records not yet saved...
+	// make sure to flush buffered records not yet saved...
 	if recsInBufferList > 0 {
 		err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameChecks, &recordsToSave)
 		utilities.FailOnError(err)
 		fmt.Println("Buffered records left behind flushed to db!")
-		recordsToSave = nil //empty slice - save some memory!
+		recordsToSave = nil // empty slice - save some memory!
 	}
 
 	fmt.Println("Import completed")

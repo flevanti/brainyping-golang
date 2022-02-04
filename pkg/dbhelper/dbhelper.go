@@ -1,17 +1,17 @@
 package dbhelper
 
 import (
-	_ "brainyping/pkg/dotenv"
-	"brainyping/pkg/utilities"
 	"context"
 	"fmt"
+	"log"
+
+	"brainyping/pkg/settings"
+	"brainyping/pkg/utilities"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-	_ "go.mongodb.org/mongo-driver/mongo/readpref"
-	"log"
-	"os"
 )
 
 var client *mongo.Client
@@ -77,17 +77,38 @@ type RedirectHistory struct {
 	StatusCode int    `bson:"statuscode"`
 }
 
-func init() {
-	Connect()
+type SettingType struct {
+	Key         string `bosn:"key"`
+	Value       string `bson:"value"`
+	Description string `bson:"description"`
 }
 
 const TablenameChecks = "checks"
 const TablenameResponse = "responses"
 const TablenameSettings = "settings"
-const TablenameHeartBeat = "heartbeat"
 
 func GetDatabaseName() string {
-	return os.Getenv("DBDBNAME")
+	return settings.GetSettStr("DBDBNAME")
+}
+
+func GetSettings() ([]SettingType, error) {
+	var result SettingType
+	var results []SettingType
+	var err error
+	cursor, err := GetClient().Database(GetDatabaseName()).Collection(TablenameSettings).Find(nil, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	for cursor.Next(ctx) {
+
+		err = cursor.Decode(&result)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, result)
+	} // end for loop
+
+	return results, nil
 }
 
 func DeleteTable(dbClient *mongo.Client, dbName string, tableName string) error {
@@ -135,20 +156,10 @@ func Connect() {
 		return
 	}
 	var err error
-	var dbUser = os.Getenv("DBUSER")
-	var dbPass = os.Getenv("DBPASS")
-	var dbUrl = os.Getenv("DBURL")
-	var dbProtocol string
-
-	if os.Getenv("DBPROTOCOLWITHDNSSEED") == "1" {
-		dbProtocol = "mongodb+srv://"
-	} else {
-		dbProtocol = "mongodb://"
-	}
 
 	ctx = context.Background()
-	clientOptions := options.Client().
-		ApplyURI(dbProtocol + dbUser + ":" + dbPass + "@" + dbUrl + "/?retryWrites=true&w=majority")
+	connString := settings.GetSettStr("DBCONNSTRING")
+	clientOptions := options.Client().ApplyURI(connString)
 
 	client, err = mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
@@ -227,7 +238,7 @@ func RetrieveEnabledChecksToBeScheduled(ch chan CheckRecord) {
 		utilities.FailOnError(err)
 		ch <- result
 	}
-	//tell caller we are done here....
+	// tell caller we are done here....
 	close(ch)
 	return
 }

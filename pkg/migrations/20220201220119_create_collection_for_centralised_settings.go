@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"brainyping/pkg/dbhelper"
+
 	"github.com/flevanti/bisonmigration"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -33,6 +34,9 @@ func up_20220201220119(db *mongo.Client) error {
 		Options: &options.IndexOptions{Unique: &idxUnique},
 	}}
 	err = dbhelper.CreateIndexes(db, dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, indexModels)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -52,7 +56,7 @@ func down_20220201220119(db *mongo.Client) error {
 //
 
 //
-//this is adding the migration to the migration engine
+// this is adding the migration to the migration engine
 //
 func init() {
 	bisonmigration.RegisterMigration(20220201220119, "create_collection_for_centralised_configuration", "*DEFAULT*", up_20220201220119, down_20220201220119)

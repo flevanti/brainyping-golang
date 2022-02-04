@@ -1,16 +1,16 @@
 package httpcheck
 
 import (
-	"brainyping/pkg/dbhelper"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"strings"
 	"time"
-)
 
-var userAgent string = "Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148" //this will trick the server to think we are a browser adding some more redirects sometimes
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/settings"
+)
 
 func ProcessCheck(url string, method string, subType string) (dbhelper.CheckOutcomeRecord, error) {
 	var outcome dbhelper.CheckOutcomeRecord
@@ -21,7 +21,7 @@ func ProcessCheck(url string, method string, subType string) (dbhelper.CheckOutc
 	case "HEAD":
 		outcome, err = subTypeGetHead(url, subType)
 		break
-	//case "HEAD":
+	// case "HEAD":
 	//	subTypeGetHead(url, "HEAD")
 	//	break
 	case "ROBOTSTXT":
@@ -40,7 +40,7 @@ func subTypeGetHead(url string, method string) (dbhelper.CheckOutcomeRecord, err
 	var client http.Client
 	var request *http.Request
 	var response *http.Response
-	var timeout = time.Duration(15 * time.Second) //quick fix for issue #14 - https://github.com/flevanti/brainyping-golang/issues/14
+	var timeout = settings.GetSettDuration("WRK_HTTP_TIMEOUT_MS") * time.Millisecond
 	var returnedValue dbhelper.CheckOutcomeRecord
 
 	cookieJar, err = cookiejar.New(nil)
@@ -64,7 +64,7 @@ func subTypeGetHead(url string, method string) (dbhelper.CheckOutcomeRecord, err
 		return returnedValue, err
 	}
 
-	//request.Header.Set("User-Agent", userAgent)
+	request.Header.Set("User-Agent", settings.GetSettStr("WRK_HTTP_USER_AGENT"))
 
 	response, err = client.Do(request)
 
@@ -93,35 +93,20 @@ func subTypeGetHead(url string, method string) (dbhelper.CheckOutcomeRecord, err
 	return returnedValue, nil
 }
 
-//func subTypeHead(url string) (bool, error) {
-//	timeout := time.Duration(3 * time.Second)
-//	client := http.Client{
-//		Timeout: timeout,
-//	}
-//	resp, err := client.Head(url)
-//	if err != nil {
-//		return false, err
-//	}
-//	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-//		return false, errors.New(fmt.Sprintf("Status code returner not 2xx but %d", resp.StatusCode))
-//	}
-//	return true, nil
-//}
-
 func subTypeRobotstxt(url string) (dbhelper.CheckOutcomeRecord, error) {
 	return dbhelper.CheckOutcomeRecord{}, nil
-	//timeout := time.Duration(3 * time.Second)
-	//client := http.Client{
+	// timeout := time.Duration(3 * time.Second)
+	// client := http.Client{
 	//	Timeout: timeout,
-	//}
-	//resp, err := client.Head(url)
-	//if err != nil {
+	// }
+	// resp, err := client.Head(url)
+	// if err != nil {
 	//	return false, err
-	//}
-	//if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	// }
+	// if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 	//	return false, errors.New(fmt.Sprintf("Status code returner not 2xx but %d", resp.StatusCode))
-	//}
-	//return true, nil
+	// }
+	// return true, nil
 }
 
 func redirectionsToListRecursive(resp *http.Response, history *[]dbhelper.RedirectHistory) {
@@ -130,12 +115,12 @@ func redirectionsToListRecursive(resp *http.Response, history *[]dbhelper.Redire
 	if resp.Request.Response != nil {
 		redirectionsToListRecursive(resp.Request.Response, history)
 	}
-	//extract information we want
+	// extract information we want
 	historyElement.URL = resp.Request.URL.String()
 	historyElement.Status = resp.Status
 	historyElement.StatusCode = resp.StatusCode
 
-	//append the element to the redirections history
+	// append the element to the redirections history
 	*history = append(*history, historyElement)
 
 }

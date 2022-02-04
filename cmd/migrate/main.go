@@ -1,15 +1,18 @@
 package main
 
 import (
-	"brainyping/pkg/dbhelper"
-	_ "brainyping/pkg/migrations"
-	"brainyping/pkg/utilities"
 	"errors"
 	"fmt"
-	"github.com/flevanti/bisonmigration"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/initapp"
+	_ "brainyping/pkg/migrations"
+	"brainyping/pkg/utilities"
+
+	"github.com/flevanti/bisonmigration"
 )
 
 const collectionName = bisonmigration.MigrationAppDefaultCollection
@@ -22,12 +25,12 @@ var sequenceStrictnessFlags = []string{
 }
 
 func GetDatabaseName() string {
-	//use main app database by default, use a wrapper to retrieve it so it is easy to change if we want.
+	// use main app database by default, use a wrapper to retrieve it so it is easy to change if we want.
 	return dbhelper.GetDatabaseName()
 }
 
 func main() {
-
+	initapp.InitApp()
 	bisonmigration.MigrationEngineInitialise(GetDatabaseName(), collectionName, dbhelper.GetClient(), sequenceStrictnessFlags)
 	migrationsFolderExists = checkIfMigrationsFolderExists()
 
@@ -36,15 +39,15 @@ func main() {
 	greetings()
 	showPendingMigrations()
 
-	//this function will start the interactive menu in the terminal
-	//so no other logic should be added beyond this point, it won't be processed....
+	// this function will start the interactive menu in the terminal
+	// so no other logic should be added beyond this point, it won't be processed....
 	userInteractionJourneyStartsHere()
 }
 
 func registerDbConnections() {
 	bisonmigration.RegisterDbConnection("main", "Main connection used by the brainyping application", dbhelper.GetClient())
-	//...
-	//...
+	// ...
+	// ...
 
 }
 
@@ -54,7 +57,7 @@ func checkIfMigrationsFolderExists() bool {
 		return true
 	}
 	if !errors.Is(err, os.ErrNotExist) {
-		//unexpected error
+		// unexpected error
 		utilities.FailOnError(err)
 	}
 

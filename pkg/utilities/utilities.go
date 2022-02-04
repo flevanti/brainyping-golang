@@ -1,20 +1,31 @@
 package utilities
 
 import (
-	"bufio"
-	"bytes"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"runtime"
 	"strconv"
+	"time"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 func FailOnError(err error) {
 	if err != nil {
-		log.Fatalln("\n\n🔴 ", err.Error())
+		pc, filename, line, _ := runtime.Caller(1)
+		log.Printf("[error] %s[%s:%d] %v\n", runtime.FuncForPC(pc).Name(), filename, line, err)
+		pc, filename, line, _ = runtime.Caller(2)
+		log.Printf("[error] %s[%s:%d]\n", runtime.FuncForPC(pc).Name(), filename, line)
+		pc, filename, line, _ = runtime.Caller(3)
+		log.Printf("[error] %s[%s:%d]\n", runtime.FuncForPC(pc).Name(), filename, line)
+		pc, filename, line, _ = runtime.Caller(4)
+		log.Printf("[error] %s[%s:%d]\n", runtime.FuncForPC(pc).Name(), filename, line)
+
+		log.Fatal("Bye bye")
+
 	}
 }
 
@@ -78,31 +89,13 @@ func GetMemoryStats(unit string) map[string]string {
 
 }
 
-func LineCounter(r io.Reader) (int, error) {
-	buf := make([]byte, bufio.MaxScanTokenSize)
-	count := 0
-	lineSep := []byte{'\n'}
-
-	for {
-		c, err := r.Read(buf)
-		count += bytes.Count(buf[:c], lineSep)
-
-		switch {
-		case err == io.EOF:
-			return count, nil
-		case err != nil:
-			return count, err
-		}
-	}
-}
-
 func generateNotSeriousId() string {
-	//to implement some funny id!
+	// to implement some funny id!
 	return "NotYetAvailable🙂"
 }
 
 func GenerateId() string {
-	//wrapper, one day we will implement a serious id generator...
+	// wrapper, one day we will implement a serious id generator...
 	return generateNotSeriousId()
 }
 
@@ -124,4 +117,29 @@ func RetrievePublicIP() string {
 
 	return string(ip)
 
+}
+
+func PrintTable(headers []string, data [][]string) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader(headers)
+	table.AppendBulk(data)
+	table.Render()
+}
+
+func ClearScreen() {
+	fmt.Print("\033[H\033[2J") // clear the screen...
+}
+
+func CalculateSpeedPerSecond() func(int64) float64 {
+	var lastTotal int64
+	var lastTime = time.Now()
+	funcToReturn := func(newTotal int64) float64 {
+		delta := newTotal - lastTotal
+		timeElapsed := int(time.Since(lastTime))
+		speed := float64(delta) / float64(timeElapsed) * float64(time.Second)
+		lastTotal = newTotal
+		lastTime = time.Now()
+		return speed
+	}
+	return funcToReturn
 }
