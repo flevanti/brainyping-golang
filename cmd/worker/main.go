@@ -57,6 +57,7 @@ const WRKSTSREADY = "READY"
 const WRKSTSCOOL = "COOL"
 const WRKSTSSTOP = "STOP"
 const WRKUNK = "UNK"
+const STATISTICSTIMEOUT = 20 * time.Second
 
 func main() {
 	initapp.InitApp()
@@ -88,11 +89,9 @@ func main() {
 	// start the queue consumer...
 	go queuehelper.ConsumeQueueForPendingChecks(ctx, ch)
 
-	// show some statistics about the current session
-	go ShowWorkerStats(ctx, ch)
+	go waitingForTheWorldToEnd(ctx)
 
-	// forever!!!
-	waitingForTheWorldToEnd(ctx)
+	userInput()
 
 }
 
@@ -186,7 +185,7 @@ forloop:
 				break forloop
 			}
 		default:
-
+			time.Sleep(100 * time.Millisecond)
 		} // end select case
 	} // end for/loop [forloop]
 
@@ -211,7 +210,6 @@ func allWorkersReady() {
 
 	fmt.Println("Waiting for all workers to be ready")
 
-	// infinite loooooop
 	for {
 		readyCount = 0
 		for _, w := range workersMetadata.workerMetadata {
@@ -263,6 +261,30 @@ func closeHandler(cfunc context.CancelFunc) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
+		endOfTheWorld = true
 		cfunc()
 	}()
+}
+
+func userInput() {
+	for {
+		userInput := utilities.ReadUserInput("h/q/s/enter")
+		switch userInput {
+		case "h":
+			fmt.Println("h help, q quit, s statistics loop, enter statistics")
+			break
+		case "q":
+			confirm := utilities.ReadUserInput("Are you sure? (yes to confirm)")
+			if confirm == "yes" {
+				_ = syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+				// show the workers statists to have a better idea of what's going on during the cooling down..
+				ShowWorkerStats(STATISTICSTIMEOUT)
+			}
+		case "s":
+			ShowWorkerStats(STATISTICSTIMEOUT)
+		case "":
+			ShowWorkerStats(1 * time.Millisecond)
+		} // end switch
+	} // end for loop
+
 }

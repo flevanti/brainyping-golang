@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 
@@ -9,18 +8,17 @@ import (
 	"brainyping/pkg/utilities"
 
 	"time"
-
-	"github.com/streadway/amqp"
 )
 
-func ShowWorkerStats(ctx context.Context, ch chan amqp.Delivery) {
-	var speedCalculator = utilities.CalculateSpeedPerSecond()
+func ShowWorkerStats(duration time.Duration) {
+	var speedCalculator = utilities.CalculateSpeedPerSecond(time.Second * 3)
 	// var successFailureRation float32
 	var rows [][]string
 	var row []string
 	var tableHeaders = []string{"WRKID", "CHECKS", "OK", "NOK", "FAIL%", "LAST CHECK", "STATUS"}
 	var md *workerMetadataType
 	var failRatio string
+	var startTime = time.Now()
 
 	for {
 		rows = [][]string{}
@@ -42,19 +40,21 @@ func ShowWorkerStats(ctx context.Context, ch chan amqp.Delivery) {
 				workerStatus[md.WorkerStatus].statusText,
 			}
 			rows = append(rows, row)
-			// successFailureRation = float32(workersMetadata.workerMetadata[i].msgFailed) / float32(workersMetadata.workerMetadata[i].msgReceived) * 100
 
-			// fmt.Printf("[%03d] %-6d %6d👍 👎%-13d ratio %.2f%%   %s\n", workersMetadata.workerMetadata[i].workerID, workersMetadata.workerMetadata[i].msgReceived, workersMetadata.workerMetadata[i].msgReceived-workersMetadata.workerMetadata[i].msgFailed, workersMetadata.workerMetadata[i].msgFailed, successFailureRation, endOfTheWorldWorkerMessage)
 		}
 		utilities.PrintTable(tableHeaders, rows)
-		// prepare some statistics compared with the previous loop
 
-		// fmt.Println("--------------------------")
 		fmt.Printf("Total %d  (%.2f/s)     %s       \n", workersMetadata.workersTotalMsgReceived, speedCalculator(workersMetadata.workersTotalMsgReceived), time.Now().Format(time.Stamp))
 
 		// go to sleep, good boy!
 		time.Sleep(time.Millisecond * 300)
 
+		// check the duration before the clear screen so we leave the last refreshed statistics visible...
+		// if for any reason the system is cooling down stay here until the end...
+		if !endOfTheWorld && time.Since(startTime) > duration {
+			break
+		}
+
 		utilities.ClearScreen()
-	} // end outer infinit for loop
+	} // end outer infinite for loop
 }

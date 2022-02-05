@@ -94,11 +94,12 @@ forloop:
 		case <-ctx.Done():
 			metadata.inGracePeriod = true
 
-			if time.Since(metadata.lastMsgTime) > settings.GetSettDuration("RC_GRACE_PERIOD_SECONDS")*time.Second {
+			if time.Since(metadata.lastMsgTime) > settings.GetSettDuration("RC_GRACE_PERIOD_MS")*time.Millisecond {
 				metadata.stopped = true
 				break forloop
 			}
 		default:
+			time.Sleep(100 * time.Millisecond)
 		} // end select case
 	} // end for/loop [forloop]
 

@@ -1,6 +1,7 @@
 package utilities
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -130,16 +132,30 @@ func ClearScreen() {
 	fmt.Print("\033[H\033[2J") // clear the screen...
 }
 
-func CalculateSpeedPerSecond() func(int64) float64 {
+func CalculateSpeedPerSecond(sampling time.Duration) func(int64) float64 {
 	var lastTotal int64
 	var lastTime = time.Now()
+	var lastSpeed float64
+	var samplingInternal = sampling
 	funcToReturn := func(newTotal int64) float64 {
+		timeElapsed := time.Since(lastTime)
+		if timeElapsed < samplingInternal {
+			return lastSpeed
+		}
 		delta := newTotal - lastTotal
-		timeElapsed := int(time.Since(lastTime))
-		speed := float64(delta) / float64(timeElapsed) * float64(time.Second)
+		lastSpeed = float64(delta) / float64(timeElapsed) * float64(time.Second)
 		lastTotal = newTotal
 		lastTime = time.Now()
-		return speed
+		return lastSpeed
 	}
 	return funcToReturn
+}
+
+func ReadUserInput(textToShow string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(textToShow, "> ")
+	text, err := reader.ReadString('\n')
+	FailOnError(err)
+
+	return strings.Trim(text, " \n\t")
 }

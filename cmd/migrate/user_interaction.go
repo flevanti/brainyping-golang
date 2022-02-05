@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"log"
@@ -15,15 +14,6 @@ import (
 
 	"github.com/flevanti/bisonmigration"
 )
-
-func readUserInput(textToShow string) string {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print(textToShow, "> ")
-	text, err := reader.ReadString('\n')
-	utilities.FailOnError(err)
-
-	return strings.Trim(text, " \n\t")
-}
 
 func greetings() {
 	fmt.Println("-------------------------------------")
@@ -51,7 +41,7 @@ func greetings() {
 func userInteractionJourneyStartsHere() {
 
 	for {
-		input := readUserInput("C:\\") // 🪟 joke....? Dad joke?
+		input := utilities.ReadUserInput("C:\\") // 🪟 joke....? Dad joke?
 		switch input {
 		case "h", "help":
 			showMainMenu()
@@ -80,7 +70,7 @@ func userInteractionJourneyStartsHere() {
 				// something is missing, break!
 				break
 			}
-			handlePostMigration(runSpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			handlePostMigration(runSpecificMigration(utilities.ReadUserInput("Unique Id of the migration? (It will be included)")))
 			break
 		case "upnext":
 			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
@@ -94,7 +84,7 @@ func userInteractionJourneyStartsHere() {
 				// something is missing, break!
 				break
 			}
-			handlePostMigration(runUpToSpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			handlePostMigration(runUpToSpecificMigration(utilities.ReadUserInput("Unique Id of the migration? (It will be included)")))
 			break
 		case "down":
 			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
@@ -108,14 +98,14 @@ func userInteractionJourneyStartsHere() {
 				// something is missing, break!
 				break
 			}
-			handlePostMigration(rollbackASpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			handlePostMigration(rollbackASpecificMigration(utilities.ReadUserInput("Unique Id of the migration? (It will be included)")))
 			break
 		case "downto":
 			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
 				// something is missing, break!
 				break
 			}
-			handlePostMigration(rollbackToSpecificMigration(readUserInput("Unique Id of the migration? (It will be included)")))
+			handlePostMigration(rollbackToSpecificMigration(utilities.ReadUserInput("Unique Id of the migration? (It will be included)")))
 			break
 		case "downlast":
 			if messageIfDbNotInitialised() || messageIfDbConnectionsMissing() {
@@ -169,7 +159,7 @@ func createNewStubMigrationFile() {
 	}
 
 	sequenceDefault, _ := strconv.Atoi(time.Now().Format("20060102150405")) // YYYYMMDDHHMMSS
-	sequenceUser := readUserInput(fmt.Sprintf("Sequence? [leave blank to use %d]", sequenceDefault))
+	sequenceUser := utilities.ReadUserInput(fmt.Sprintf("Sequence? [leave blank to use %d]", sequenceDefault))
 	var sequence int
 	if sequenceUser == "" {
 		sequence = sequenceDefault
@@ -183,7 +173,7 @@ func createNewStubMigrationFile() {
 		}
 	}
 
-	migrationName := readUserInput(fmt.Sprintf("Migration name?"))
+	migrationName := utilities.ReadUserInput(fmt.Sprintf("Migration name?"))
 	if migrationName == "" {
 		fmt.Println("Migration name cannot be empty")
 		fmt.Println("Creation of stub record aborted")
@@ -210,14 +200,14 @@ func createNewStubMigrationFile() {
 
 	fmt.Printf("Filename generated is [%s]\n", filename)
 
-	accept := readUserInput("Does it look ok? (y to accept) ")
+	accept := utilities.ReadUserInput("Does it look ok? (y to accept) ")
 	if accept != "y" {
 		fmt.Println("Creation of stub record aborted")
 		return
 	}
 
 	fmt.Println("Database connection label")
-	connLabel := readUserInput("[leave blank for default connection] ")
+	connLabel := utilities.ReadUserInput("[leave blank for default connection] ")
 
 	// check if the connection label is a shortcut for system labels...
 	switch connLabel {
