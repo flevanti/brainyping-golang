@@ -85,7 +85,7 @@ forloop:
 			metadata.lastMsgTime = time.Now()
 			err = json.Unmarshal(response.Body, &messageQueued)
 			utilities.FailOnError(err)
-			if messageQueued.RecordOutcome.Success {
+			if !messageQueued.RecordOutcome.Success {
 				metadata.msgFailed++
 			}
 			messageQueued.ReceivedByResponseHandler = time.Now().Unix()
@@ -148,6 +148,7 @@ func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.Check
 	response.Redirects = record.RecordOutcome.Redirects
 	response.RedirectsHistory = record.RecordOutcome.RedirectsHistory
 	response.CreatedUnix = time.Now().Unix()
+	response.RequestId = record.RequestId
 	return response
 
 }

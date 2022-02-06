@@ -25,6 +25,7 @@ type CheckRecordQueued struct {
 	QueuedReturnUnix          int64                       `bson:"queuedreturnunix"`
 	ReceivedByResponseHandler int64                       `bson:"receivedbyresponsehandler"`
 	ErrorFatal                string                      `bson:"errorfatal"`
+	RequestId                 string                      `bson:"requestid"`
 }
 
 func InitQueue() {

@@ -26,6 +26,7 @@ type CheckRecord struct {
 	Type               string   `bson:"type"`
 	SubType            string   `bson:"subtype"`
 	Frequency          int      `bson:"frequency"`
+	UserAgent          string   `bson:"useragent"`
 	Regions            []string `bson:"regions"`
 	RegionsEachTime    int      `bson:"regionseachtime"`
 	Enabled            bool     `bson:"enabled"`
@@ -36,6 +37,7 @@ type CheckRecord struct {
 }
 
 type CheckResponseRecordDb struct {
+	MongoDbId            string            `bson:"_id,omitempty"`
 	CheckId              string            `bson:"checkid"`
 	Region               string            `bson:"region"`
 	ScheduledTimeUnix    int64             `bson:"scheduledtimeunix"`
@@ -56,6 +58,7 @@ type CheckResponseRecordDb struct {
 	Message              string            `bson:"message"`
 	Redirects            int               `bson:"redirects"`
 	RedirectsHistory     []RedirectHistory `bson:"redirectshistory"`
+	RequestId            string            `bson:"requestid""`
 }
 
 type CheckOutcomeRecord struct {
@@ -69,6 +72,18 @@ type CheckOutcomeRecord struct {
 	RedirectsHistory []RedirectHistory `bson:"redirectshistory"`
 	CreatedUnix      int64             `bson:"createdunix"`
 	Region           string            `bson:"region"`
+}
+
+type CheckStatusChangeRecordDb struct {
+	CheckId             string
+	OwnerUid            string
+	ChangeUnix          int
+	ChangePreviousUnix  int
+	Status              string
+	StatusPrevious      string
+	RequestId           string
+	ResponseDbId        string
+	ChangeProcessedUnix int
 }
 
 type RedirectHistory struct {
@@ -86,6 +101,8 @@ type SettingType struct {
 const TablenameChecks = "checks"
 const TablenameResponse = "responses"
 const TablenameSettings = "settings"
+const TablenameChecksStatus = "checks_status"
+const TablenameChecksStatusChanges = "checks_status_changes"
 
 func GetDatabaseName() string {
 	return settings.GetSettStr("DBDBNAME")

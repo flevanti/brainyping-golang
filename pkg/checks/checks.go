@@ -1,10 +1,11 @@
 package checks
 
 import (
+	"time"
+
 	"brainyping/pkg/checks/httpcheck"
 	"brainyping/pkg/dbhelper"
 	"brainyping/pkg/queuehelper"
-	"time"
 )
 
 func ProcessCheck(check *queuehelper.CheckRecordQueued) error {
@@ -13,10 +14,10 @@ func ProcessCheck(check *queuehelper.CheckRecordQueued) error {
 	var checkStart time.Time = time.Now()
 	switch check.Record.Type {
 	case "HTTP":
-		checkResponse, err = httpcheck.ProcessCheck(check.Record.Host, check.Record.Type, check.Record.SubType)
+		checkResponse, err = httpcheck.ProcessCheck(check.Record.Host, check.Record.SubType, check.Record.UserAgent)
 		break
 	case "NET":
-		//netcheck.ProcessRequest(check)
+		// netcheck.ProcessRequest(check)
 		break
 	default:
 	}

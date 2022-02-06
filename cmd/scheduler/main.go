@@ -14,6 +14,7 @@ import (
 	"brainyping/pkg/utilities"
 
 	"github.com/go-co-op/gocron"
+	"github.com/google/uuid"
 )
 
 var scheduler *gocron.Scheduler
@@ -113,6 +114,7 @@ func queue(record queuehelper.CheckRecordQueued) {
 		return
 	}
 	atomic.AddInt64(&jobsQueuedSinceBoot, 1)
+	record.RequestId = fmt.Sprintf("%d--%s", time.Now().UnixNano(), uuid.NewString())
 	record.QueuedUnix = time.Now().Unix()
 	record.ScheduledUnix = record.QueuedUnix // use the same time as the queued time, we don't have a better alternative right now.
 	var recordJson, err = json.Marshal(record)
