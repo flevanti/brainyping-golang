@@ -168,7 +168,7 @@ forloop:
 			messageQueued.ReceivedByWorkerUnix = time.Now().Unix()
 
 			_ = check.Ack(false)
-			err = checks.ProcessCheck(&messageQueued)
+			err = checks.ProcessCheckFromQueue(&messageQueued)
 			if err != nil {
 				workersMetadata.workerMetadata[metadataIndex].msgFailed++
 			}

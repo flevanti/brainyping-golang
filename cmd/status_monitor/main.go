@@ -12,14 +12,15 @@ import (
 )
 
 type checkStatusType struct {
-	checkId             string
-	requestId           string
-	ownerUid            string
-	currentStatus       string
-	currentStatusSince  time.Time
-	previousStatus      string
-	previousStatusSince time.Time
-	changeprocessedUnix int64
+	CheckId                string        `json:"checkid"`
+	RequestId              string        `json:"requestid"`
+	OwnerUid               string        `json:"owneruid"`
+	CurrentStatus          string        `json:"curreststatus"`
+	CurrentStatusSince     time.Time     `json:"currentstatussince"`
+	PreviousStatus         string        `json:"previousstatus"`
+	PreviousStatusSince    time.Time     `json:"previousstatussince"`
+	PreviousStatusDuration time.Duration `json:"previousstatusduration"`
+	ChangeprocessedUnix    int64         `json:"changeprocessedunix"`
 }
 type markerType struct {
 	RequestId    string
@@ -40,7 +41,7 @@ const markerSourceStatusChanges = "STCHANGES"
 
 func main() {
 	var chReadResponses = make(chan dbhelper.CheckResponseRecordDb, 100)
-	var chWriteStatusChanges = make(chan dbhelper.CheckStatusChangeRecordDb, 100)
+	var chWriteStatusChanges = make(chan string, 100)
 
 	initapp.InitApp()
 	// TODO load current checks statuses
@@ -53,6 +54,10 @@ func main() {
 
 	// detect changes...
 	go detectStatusChangesListener(chReadResponses, chWriteStatusChanges)
+
+	// write changes to db
+	writeStatusChangesToDb(chWriteStatusChanges)
+
 	select {}
 
 }
@@ -80,13 +85,15 @@ func retrieveLastStatusMonitorMarker() {
 
 }
 
-func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseRecordDb, chWriteStatusChanges chan dbhelper.CheckStatusChangeRecordDb) {
+func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseRecordDb, chWriteStatusChanges chan string) {
 
 	for {
 
 		select {
 		case record := <-chReadResponses:
-			detectStatusChanges(&record)
+			if detectStatusChanges(&record) {
+				chWriteStatusChanges <- record.CheckId
+			}
 
 		default:
 
@@ -96,7 +103,19 @@ func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseReco
 
 }
 
-func detectStatusChanges(record *dbhelper.CheckResponseRecordDb) {
+func writeStatusChangesToDb(writeStatusChangesToDb chan string) {
+	var recordsToSave []interface{}
+	for {
+		select {
+		case checkId := <-writeStatusChangesToDb:
+			checksStatusesMutex.Lock()
+			recordsToSave = append(recordsToSave, checksStatuses[checkId])
+			checksStatusesMutex.Unlock()
+		}
+	}
+}
+
+func detectStatusChanges(record *dbhelper.CheckResponseRecordDb) bool {
 	var responseStatusString string
 	if record.Success {
 		responseStatusString = STATUSOK
@@ -105,43 +124,47 @@ func detectStatusChanges(record *dbhelper.CheckResponseRecordDb) {
 	}
 
 	// create the element for the current checkID in the statuschanges element....
+	checksStatusesMutex.Lock()
 	initialiseCheckStatusElement(record)
+	checksStatusesMutex.Unlock()
 
-	if checksStatuses[record.CheckId].currentStatus != responseStatusString {
+	if checksStatuses[record.CheckId].CurrentStatus != responseStatusString {
 		// status change detected...
 		checksStatusesMutex.Lock()
 		updateCheckStatusElement(record, responseStatusString)
 		checksStatusesMutex.Unlock()
 		logChange(record.CheckId)
+		return true
 	}
-
+	return false
 }
 
 func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus string) {
 
 	statusRecord := checksStatuses[record.CheckId]
 
-	statusRecord.requestId = record.RequestId
-	statusRecord.previousStatus = statusRecord.currentStatus
-	statusRecord.previousStatusSince = statusRecord.currentStatusSince
-	statusRecord.currentStatus = newStatus
-	statusRecord.currentStatusSince = time.Unix(record.ProcessedUnix, 0)
-	statusRecord.changeprocessedUnix = time.Now().Unix()
-
+	statusRecord.RequestId = record.RequestId
+	statusRecord.PreviousStatus = statusRecord.CurrentStatus
+	statusRecord.PreviousStatusSince = statusRecord.CurrentStatusSince
+	statusRecord.CurrentStatus = newStatus
+	statusRecord.CurrentStatusSince = time.Unix(record.ProcessedUnix, 0)
+	statusRecord.ChangeprocessedUnix = time.Now().Unix()
+	statusRecord.PreviousStatusDuration = statusRecord.CurrentStatusSince.Sub(statusRecord.PreviousStatusSince)
 	checksStatuses[record.CheckId] = statusRecord
 }
 
 func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 	if _, exists := checksStatuses[record.CheckId]; !exists {
 		newStatusChange := checkStatusType{
-			checkId:             record.CheckId,
-			requestId:           record.RequestId,
-			ownerUid:            record.OwnerUid,
-			currentStatus:       STATUSINIT,
-			currentStatusSince:  time.Now(),
-			previousStatus:      "",
-			previousStatusSince: time.Now(),
-			changeprocessedUnix: time.Now().Unix(),
+			CheckId:                record.CheckId,
+			RequestId:              record.RequestId,
+			OwnerUid:               record.OwnerUid,
+			CurrentStatus:          STATUSINIT,
+			CurrentStatusSince:     time.Unix(record.ProcessedUnix, 0),
+			PreviousStatus:         "",
+			PreviousStatusSince:    time.Now(),
+			PreviousStatusDuration: time.Duration(0),
+			ChangeprocessedUnix:    time.Now().Unix(),
 		}
 		checksStatuses[record.CheckId] = newStatusChange
 		// logChange(record.CheckId)
@@ -150,10 +173,11 @@ func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 
 func logChange(checkId string) {
 
-	log.Printf("Status change detected for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s]\n",
-		checksStatuses[checkId].checkId,
-		checksStatuses[checkId].requestId,
-		checksStatuses[checkId].currentStatus,
-		checksStatuses[checkId].previousStatus,
-		checksStatuses[checkId].currentStatusSince.Sub(checksStatuses[checkId].previousStatusSince))
+	log.Printf("Status change detected at %s for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s]\n",
+		checksStatuses[checkId].CurrentStatusSince.Format(time.Stamp),
+		checksStatuses[checkId].CheckId,
+		checksStatuses[checkId].RequestId,
+		checksStatuses[checkId].CurrentStatus,
+		checksStatuses[checkId].PreviousStatus,
+		checksStatuses[checkId].PreviousStatusDuration)
 }

@@ -8,7 +8,7 @@ import (
 	"brainyping/pkg/queuehelper"
 )
 
-func ProcessCheck(check *queuehelper.CheckRecordQueued) error {
+func ProcessCheckFromQueue(check *queuehelper.CheckRecordQueued) error {
 	var checkResponse dbhelper.CheckOutcomeRecord
 	var err error
 	var checkStart time.Time = time.Now()
@@ -22,10 +22,29 @@ func ProcessCheck(check *queuehelper.CheckRecordQueued) error {
 	default:
 	}
 
+	if err != nil {
+		return err
+	}
+
 	checkResponse.CreatedUnix = time.Now().Unix()
 	checkResponse.TimeSpent = time.Since(checkStart).Microseconds()
 	check.RecordOutcome = checkResponse
 
-	return err
+	return nil
+}
+
+func ProcessHTTPCheckFromCli(subType string, url string, userAgent string) (dbhelper.CheckOutcomeRecord, error) {
+	var checkResponse dbhelper.CheckOutcomeRecord
+	var err error
+	var checkStart time.Time = time.Now()
+
+	checkResponse, err = httpcheck.ProcessCheck(url, subType, userAgent)
+	if err != nil {
+		return dbhelper.CheckOutcomeRecord{}, err
+	}
+	checkResponse.CreatedUnix = time.Now().Unix()
+	checkResponse.TimeSpent = time.Since(checkStart).Microseconds()
+
+	return checkResponse, nil
 
 }
