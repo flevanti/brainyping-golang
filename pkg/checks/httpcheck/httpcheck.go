@@ -17,8 +17,7 @@ func ProcessCheck(url string, method string, subType string) (dbhelper.CheckOutc
 	var err error
 
 	switch subType {
-	case "GET":
-	case "HEAD":
+	case "HEAD", "GET":
 		outcome, err = subTypeGetHead(url, subType)
 		break
 	// case "HEAD":
