@@ -9,10 +9,12 @@ import (
 
 	"brainyping/pkg/dbhelper"
 	"brainyping/pkg/initapp"
+	"brainyping/pkg/utilities"
 )
 
 type checkStatusType struct {
 	CheckId                string        `json:"checkid"`
+	ResponseDbId           string        `json:"responsedbid"`
 	RequestId              string        `json:"requestid"`
 	OwnerUid               string        `json:"owneruid"`
 	CurrentStatus          string        `json:"curreststatus"`
@@ -56,7 +58,7 @@ func main() {
 	go detectStatusChangesListener(chReadResponses, chWriteStatusChanges)
 
 	// write changes to db
-	writeStatusChangesToDb(chWriteStatusChanges)
+	writeStatusChangesToDbBuffer(chWriteStatusChanges)
 
 	select {}
 
@@ -103,16 +105,24 @@ func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseReco
 
 }
 
-func writeStatusChangesToDb(writeStatusChangesToDb chan string) {
+func writeStatusChangesToDbBuffer(chWriteStatusChangesToDb chan string) {
 	var recordsToSave []interface{}
 	for {
 		select {
-		case checkId := <-writeStatusChangesToDb:
+		case checkId := <-chWriteStatusChangesToDb:
 			checksStatusesMutex.Lock()
 			recordsToSave = append(recordsToSave, checksStatuses[checkId])
 			checksStatusesMutex.Unlock()
-		}
-	}
+			if len(recordsToSave) >= BULKSAVESIZE {
+				writeStatusChangesToDb(&recordsToSave)
+				recordsToSave = []interface{}{}
+			}
+		} // end select
+	} // end for loop
+}
+
+func writeStatusChangesToDb(records *[]interface{}) {
+	utilities.FailOnError(dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameChecksStatusChanges, records))
 }
 
 func detectStatusChanges(record *dbhelper.CheckResponseRecordDb) bool {
@@ -143,6 +153,7 @@ func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus 
 
 	statusRecord := checksStatuses[record.CheckId]
 
+	statusRecord.ResponseDbId = record.MongoDbId
 	statusRecord.RequestId = record.RequestId
 	statusRecord.PreviousStatus = statusRecord.CurrentStatus
 	statusRecord.PreviousStatusSince = statusRecord.CurrentStatusSince
