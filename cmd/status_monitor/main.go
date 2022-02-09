@@ -9,6 +9,7 @@ import (
 
 	"brainyping/pkg/dbhelper"
 	"brainyping/pkg/initapp"
+	"brainyping/pkg/settings"
 	"brainyping/pkg/utilities"
 )
 
@@ -39,7 +40,8 @@ const STATUSOK = "OK"
 const STATUSNOK = "NOK"
 const BULKSAVESIZE = 1000
 const markerSourceResponses = "RESPONSES"
-const markerSourceStatusChanges = "STCHANGES"
+const markerSourceStatusChanges = "STATUSCHANGES"
+const STM_SAVE_AUTO_FLUSH_MS = 10000
 
 func main() {
 	var chReadResponses = make(chan dbhelper.CheckResponseRecordDb, 100)
@@ -58,7 +60,7 @@ func main() {
 	go detectStatusChangesListener(chReadResponses, chWriteStatusChanges)
 
 	// write changes to db
-	writeStatusChangesToDbBuffer(chWriteStatusChanges)
+	go writeStatusChangesToDbBuffer(chWriteStatusChanges)
 
 	select {}
 
@@ -107,21 +109,29 @@ func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseReco
 
 func writeStatusChangesToDbBuffer(chWriteStatusChangesToDb chan string) {
 	var recordsToSave []interface{}
+	var lastSaved time.Time = time.Now()
+
 	for {
 		select {
 		case checkId := <-chWriteStatusChangesToDb:
 			checksStatusesMutex.Lock()
 			recordsToSave = append(recordsToSave, checksStatuses[checkId])
 			checksStatusesMutex.Unlock()
-			if len(recordsToSave) >= BULKSAVESIZE {
-				writeStatusChangesToDb(&recordsToSave)
-				recordsToSave = []interface{}{}
-			}
+		default:
+
 		} // end select
+		if len(recordsToSave) >= BULKSAVESIZE || time.Since(lastSaved) > settings.GetSettDuration("STM_SAVE_AUTO_FLUSH_MS")*time.Millisecond {
+			writeStatusChangesToDb(&recordsToSave)
+			recordsToSave = []interface{}{}
+			lastSaved = time.Now()
+		}
 	} // end for loop
 }
 
 func writeStatusChangesToDb(records *[]interface{}) {
+	if len(*records) == 0 {
+		return
+	}
 	utilities.FailOnError(dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameChecksStatusChanges, records))
 }
 
@@ -183,7 +193,6 @@ func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 }
 
 func logChange(checkId string) {
-
 	log.Printf("Status change detected at %s for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s]\n",
 		checksStatuses[checkId].CurrentStatusSince.Format(time.Stamp),
 		checksStatuses[checkId].CheckId,

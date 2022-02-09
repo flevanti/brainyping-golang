@@ -111,15 +111,20 @@ func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 		select {
 		case record := <-chsave:
 			saveBuffer = append(saveBuffer, record)
-			if len(saveBuffer) >= settings.GetSettInt("RC_BULK_SAVE_SIZE") || time.Since(lastSaved) > settings.GetSettDuration("RC_SAVE_AUTO_FLUSH_MS")*time.Second {
-				saveResponsesInDatabase()
-			}
 		default:
+
+		} // end select
+		if len(saveBuffer) >= settings.GetSettInt("RC_BULK_SAVE_SIZE") || time.Since(lastSaved) > settings.GetSettDuration("RC_SAVE_AUTO_FLUSH_MS")*time.Millisecond {
+			saveResponsesInDatabase()
+			lastSaved = time.Now()
 		}
-	}
+	} // end for loop
 }
 
 func saveResponsesInDatabase() {
+	if len(saveBuffer) == 0 {
+		return
+	}
 	err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &saveBuffer)
 	utilities.FailOnError(err)
 	saveBuffer = nil

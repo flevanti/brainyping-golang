@@ -197,12 +197,33 @@ func Disconnect() {
 func SaveManyRecords(db string, collection string, records *[]interface{}) error {
 	coll := GetClient().Database(db).Collection(collection)
 
-	res, err := coll.InsertMany(ctx, *records)
-	_ = res
+	_, err := coll.InsertMany(ctx, *records)
+
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func SaveRecord(db string, collection string, document interface{}) error {
+	coll := GetClient().Database(db).Collection(collection)
+
+	_, err := coll.InsertOne(ctx, document)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func SaveNewSett(record SettingType) {
+	err := SaveRecord(GetDatabaseName(), TablenameSettings, record)
+	utilities.FailOnError(err)
+}
+
+func DeleteSettingByKey(key string) {
+	_, err := DeleteRecordsByFieldValue(GetDatabaseName(), TablenameSettings, "key", key)
+	utilities.FailOnError(err)
 }
 
 func DeleteRecordsByFieldValue(db string, collection string, field string, value interface{}) (*mongo.DeleteResult, error) {
