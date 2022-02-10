@@ -103,3 +103,12 @@ func readResponsesFromMarker(ch chan dbhelper.CheckResponseRecordDb) {
 	} // end infinite for loop
 
 }
+
+func saveCheckCurrentStatus(checkId string, record interface{}) {
+	opts := options.FindOneAndUpdate().SetUpsert(true)
+	update := bson.D{{"$set", record}}
+	res := dbhelper.GetClient().Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameChecksStatus).FindOneAndUpdate(nil, bson.M{"checkid": checkId}, update, opts)
+	if res.Err() != nil && !errors.Is(res.Err(), mongo.ErrNoDocuments) {
+		utilities.FailOnError(res.Err())
+	}
+}

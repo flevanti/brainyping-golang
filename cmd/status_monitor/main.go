@@ -23,7 +23,7 @@ type checkStatusType struct {
 	PreviousStatus         string        `json:"previousstatus"`
 	PreviousStatusSince    time.Time     `json:"previousstatussince"`
 	PreviousStatusDuration time.Duration `json:"previousstatusduration"`
-	ChangeprocessedUnix    int64         `json:"changeprocessedunix"`
+	ChangeProcessedUnix    int64         `json:"changeprocessedunix"`
 }
 type markerType struct {
 	RequestId    string
@@ -46,6 +46,7 @@ const STM_SAVE_AUTO_FLUSH_MS = 10000
 func main() {
 	var chReadResponses = make(chan dbhelper.CheckResponseRecordDb, 100)
 	var chWriteStatusChanges = make(chan string, 100)
+	var chWriteStatusCurrent = make(chan string, 100)
 
 	initapp.InitApp()
 	// TODO load current checks statuses
@@ -57,12 +58,31 @@ func main() {
 	go readResponsesFromMarker(chReadResponses)
 
 	// detect changes...
-	go detectStatusChangesListener(chReadResponses, chWriteStatusChanges)
+	go detectStatusChangesListener(chReadResponses, chWriteStatusChanges, chWriteStatusCurrent)
 
 	// write changes to db
 	go writeStatusChangesToDbBuffer(chWriteStatusChanges)
 
+	go writeStatusCurrentToDbBuffer(chWriteStatusCurrent)
+
 	select {}
+
+}
+
+func writeStatusCurrentToDbBuffer(chWriteStatusCurrent chan string) {
+
+	var recordI interface{}
+	for {
+		select {
+		case checkId := <-chWriteStatusCurrent:
+
+			checksStatusesMutex.Lock()
+			recordI = checksStatuses[checkId]
+			checksStatusesMutex.Unlock()
+			
+			saveCheckCurrentStatus(checkId, recordI)
+		} // end select
+	} // end for
 
 }
 
@@ -89,13 +109,14 @@ func retrieveLastStatusMonitorMarker() {
 
 }
 
-func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseRecordDb, chWriteStatusChanges chan string) {
+func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseRecordDb, chWriteStatusChanges chan string, chWriteStatusCurrent chan string) {
 
 	for {
 
 		select {
 		case record := <-chReadResponses:
 			if detectStatusChanges(&record) {
+				chWriteStatusCurrent <- record.CheckId
 				chWriteStatusChanges <- record.CheckId
 			}
 
@@ -169,7 +190,7 @@ func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus 
 	statusRecord.PreviousStatusSince = statusRecord.CurrentStatusSince
 	statusRecord.CurrentStatus = newStatus
 	statusRecord.CurrentStatusSince = time.Unix(record.ProcessedUnix, 0)
-	statusRecord.ChangeprocessedUnix = time.Now().Unix()
+	statusRecord.ChangeProcessedUnix = time.Now().Unix()
 	statusRecord.PreviousStatusDuration = statusRecord.CurrentStatusSince.Sub(statusRecord.PreviousStatusSince)
 	checksStatuses[record.CheckId] = statusRecord
 }
@@ -185,7 +206,7 @@ func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 			PreviousStatus:         "",
 			PreviousStatusSince:    time.Now(),
 			PreviousStatusDuration: time.Duration(0),
-			ChangeprocessedUnix:    time.Now().Unix(),
+			ChangeProcessedUnix:    time.Now().Unix(),
 		}
 		checksStatuses[record.CheckId] = newStatusChange
 		// logChange(record.CheckId)
