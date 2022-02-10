@@ -79,7 +79,7 @@ func writeStatusCurrentToDbBuffer(chWriteStatusCurrent chan string) {
 			checksStatusesMutex.Lock()
 			recordI = checksStatuses[checkId]
 			checksStatusesMutex.Unlock()
-			
+
 			saveCheckCurrentStatus(checkId, recordI)
 		} // end select
 	} // end for
