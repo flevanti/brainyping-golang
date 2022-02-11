@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/settings"
 
 	"github.com/flevanti/bisonmigration"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,13 +20,13 @@ var value string = "5000"
 var descr string = "status monitor max wait between flushing the buffer to db"
 
 func up_20220209190358(db *mongo.Client) error {
-	dbhelper.DeleteSettingByKey(key)
-	dbhelper.SaveNewSett(dbhelper.SettingType{Key: key, Value: value, Description: descr})
+	settings.DeleteSettingByKey(key)
+	settings.SaveNewSett(dbhelper.SettingType{Key: key, Value: value, Description: descr})
 	return nil
 }
 
 func down_20220209190358(db *mongo.Client) error {
-	dbhelper.DeleteSettingByKey(key)
+	settings.DeleteSettingByKey(key)
 	return nil
 }
 

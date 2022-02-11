@@ -14,16 +14,19 @@ import (
 )
 
 type checkStatusType struct {
-	CheckId                string        `json:"checkid"`
-	ResponseDbId           string        `json:"responsedbid"`
-	RequestId              string        `json:"requestid"`
-	OwnerUid               string        `json:"owneruid"`
-	CurrentStatus          string        `json:"curreststatus"`
-	CurrentStatusSince     time.Time     `json:"currentstatussince"`
-	PreviousStatus         string        `json:"previousstatus"`
-	PreviousStatusSince    time.Time     `json:"previousstatussince"`
-	PreviousStatusDuration time.Duration `json:"previousstatusduration"`
-	ChangeProcessedUnix    int64         `json:"changeprocessedunix"`
+	CheckId                   string        `bson:"checkid"`
+	ResponseDbId              string        `bson:"responsedbid"`
+	RequestId                 string        `bson:"requestid"`
+	OwnerUid                  string        `bson:"owneruid"`
+	CurrentStatus             string        `bson:"curreststatus"`
+	CurrentStatusSince        time.Time     `bson:"currentstatussince"`
+	CurrentStatusSinceUnix    int64         `bson:"currentstatussinceunix"`
+	PreviousStatus            string        `bson:"previousstatus"`
+	PreviousStatusSince       time.Time     `bson:"previousstatussince"`
+	PreviousStatusSinceUnix   int64         `bson:"previousstatussinceunix"`
+	PreviousStatusDuration    time.Duration `bson:"previousstatusduration"`
+	PreviousStatusDurationSec int64         `bson:"previousstatusdurationsec"`
+	ChangeProcessedUnix       int64         `bson:"changeprocessedunix"`
 }
 type markerType struct {
 	RequestId    string
@@ -41,7 +44,7 @@ const STATUSNOK = "NOK"
 const BULKSAVESIZE = 1000
 const markerSourceResponses = "RESPONSES"
 const markerSourceStatusChanges = "STATUSCHANGES"
-const STM_SAVE_AUTO_FLUSH_MS = 10000
+const STMSAVEAUTOFLUSHMS = "STM_SAVE_AUTO_FLUSH_MS"
 
 func main() {
 	var chReadResponses = make(chan dbhelper.CheckResponseRecordDb, 100)
@@ -141,7 +144,7 @@ func writeStatusChangesToDbBuffer(chWriteStatusChangesToDb chan string) {
 		default:
 
 		} // end select
-		if len(recordsToSave) >= BULKSAVESIZE || time.Since(lastSaved) > settings.GetSettDuration("STM_SAVE_AUTO_FLUSH_MS")*time.Millisecond {
+		if len(recordsToSave) >= BULKSAVESIZE || time.Since(lastSaved) > settings.GetSettDuration(STMSAVEAUTOFLUSHMS)*time.Millisecond {
 			writeStatusChangesToDb(&recordsToSave)
 			recordsToSave = []interface{}{}
 			lastSaved = time.Now()
@@ -184,12 +187,16 @@ func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus 
 
 	statusRecord := checksStatuses[record.CheckId]
 
+	// please note that we are updating the "previous" metadata using the current metadata that is going to become ... old
+
 	statusRecord.ResponseDbId = record.MongoDbId
 	statusRecord.RequestId = record.RequestId
 	statusRecord.PreviousStatus = statusRecord.CurrentStatus
 	statusRecord.PreviousStatusSince = statusRecord.CurrentStatusSince
+	statusRecord.PreviousStatusSinceUnix = statusRecord.PreviousStatusSince.Unix()
 	statusRecord.CurrentStatus = newStatus
 	statusRecord.CurrentStatusSince = time.Unix(record.ProcessedUnix, 0)
+	statusRecord.CurrentStatusSinceUnix = statusRecord.CurrentStatusSince.Unix()
 	statusRecord.ChangeProcessedUnix = time.Now().Unix()
 	statusRecord.PreviousStatusDuration = statusRecord.CurrentStatusSince.Sub(statusRecord.PreviousStatusSince)
 	checksStatuses[record.CheckId] = statusRecord

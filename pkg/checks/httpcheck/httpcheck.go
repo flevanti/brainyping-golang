@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"brainyping/pkg/dbhelper"
-	"brainyping/pkg/settings"
 )
+
+var HttpCheckDefaultUserAgent string
 
 func ProcessCheck(url string, subType string, userAgent string) (dbhelper.CheckOutcomeRecord, error) {
 	var outcome dbhelper.CheckOutcomeRecord
@@ -40,7 +41,7 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 	var client http.Client
 	var request *http.Request
 	var response *http.Response
-	var timeout = settings.GetSettDuration("WRK_HTTP_TIMEOUT_MS") * time.Millisecond
+	var timeout = 10000 * time.Millisecond
 	var returnedValue dbhelper.CheckOutcomeRecord
 	var userAgentToUse string
 
@@ -68,7 +69,7 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 	if userAgent != "" {
 		userAgentToUse = userAgent
 	} else {
-		userAgentToUse = settings.GetSettStr("WRK_HTTP_USER_AGENT")
+		userAgentToUse = HttpCheckDefaultUserAgent
 	}
 
 	request.Header.Set("User-Agent", userAgentToUse)

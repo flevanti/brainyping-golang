@@ -22,7 +22,7 @@ func ShowWorkerStats(duration time.Duration) {
 
 	for {
 		rows = [][]string{}
-		for i := 0; i < settings.GetSettInt("WRK_GOROUTINES"); i++ {
+		for i := 0; i < settings.GetSettInt(WRKGOROUTINES); i++ {
 			md = &workersMetadata.workerMetadata[i]
 			if md.msgFailed > 0 {
 				failRatio = fmt.Sprintf("%.1f", float64(md.msgFailed)/float64(md.msgReceived)*100)

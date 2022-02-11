@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"brainyping/pkg/dbhelper"
 	"brainyping/pkg/utilities"
 )
 
@@ -68,4 +69,14 @@ func GetEnv(key string) (string, bool) {
 func SettExists(key string) bool {
 	_, b := os.LookupEnv(key)
 	return b
+}
+
+func SaveNewSett(record dbhelper.SettingType) {
+	err := dbhelper.SaveRecord(dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, record)
+	utilities.FailOnError(err)
+}
+
+func DeleteSettingByKey(key string) {
+	_, err := dbhelper.DeleteRecordsByFieldValue(dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, "key", key)
+	utilities.FailOnError(err)
 }

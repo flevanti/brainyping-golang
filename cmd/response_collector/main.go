@@ -32,6 +32,13 @@ var endOfTheWorld bool
 var metadata metadataType
 var saveBuffer []interface{}
 
+const QUEUECONSUMERNAME = "response_collector"
+
+const RCGRACEPERIODMS = "RC_GRACE_PERIOD_MS"
+const RCBULKSAVESIZE = "RC_BULK_SAVE_SIZE"
+const RCSAVEAUTOFLUSHMS = "RC_SAVE_AUTO_FLUSH_MS"
+const RCBUFCHSIZE = "RC_BUF_CH_SIZE"
+
 func main() {
 	initapp.InitApp()
 	queuehelper.InitQueue()
@@ -41,16 +48,16 @@ func main() {
 	defer cfunc()
 
 	// create the channel used by the queue consumer to buffer fetched messages
-	chReceive := make(chan amqp.Delivery, settings.GetSettInt("RC_BUF_CH_SIZE"))
+	chReceive := make(chan amqp.Delivery, settings.GetSettInt(RCBUFCHSIZE))
 	chSave := make(chan dbhelper.CheckResponseRecordDb)
 
 	// pass the context cancel function to the close handler
 	closeHandler(cfunc)
 
 	// start the queue consumer...
-	go queuehelper.ConsumeQueueForResponsesToChecks(ctx, chReceive)
+	go ConsumeQueueForResponsesToChecks(ctx, chReceive)
 
-	dbhelper.Connect()
+	dbhelper.Connect(settings.GetSettStr(dbhelper.DBDBNAME), settings.GetSettStr(dbhelper.DBCONNSTRING))
 	defer dbhelper.Disconnect()
 
 	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
@@ -94,7 +101,7 @@ forloop:
 		case <-ctx.Done():
 			metadata.inGracePeriod = true
 
-			if time.Since(metadata.lastMsgTime) > settings.GetSettDuration("RC_GRACE_PERIOD_MS")*time.Millisecond {
+			if time.Since(metadata.lastMsgTime) > settings.GetSettDuration(RCGRACEPERIODMS)*time.Millisecond {
 				metadata.stopped = true
 				break forloop
 			}
@@ -114,7 +121,7 @@ func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 		default:
 
 		} // end select
-		if len(saveBuffer) >= settings.GetSettInt("RC_BULK_SAVE_SIZE") || time.Since(lastSaved) > settings.GetSettDuration("RC_SAVE_AUTO_FLUSH_MS")*time.Millisecond {
+		if len(saveBuffer) >= settings.GetSettInt(RCBULKSAVESIZE) || time.Since(lastSaved) > settings.GetSettDuration(RCSAVEAUTOFLUSHMS)*time.Millisecond {
 			saveResponsesInDatabase()
 			lastSaved = time.Now()
 		}

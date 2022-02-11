@@ -29,7 +29,7 @@ func main() {
 	fmt.Printf("Boot time is %s\n", initapp.GetBootTime().Format(time.Stamp))
 
 	// count enabled checks to plan
-	count := dbhelper.CountEnabledChecks()
+	count := CountEnabledChecks()
 	if count == 0 {
 		fmt.Println("No checks to plan, bye bye.... ")
 		return
@@ -74,7 +74,7 @@ func scheduleChecks() {
 
 	chRecords := make(chan dbhelper.CheckRecord)
 	fmt.Println("Adding records to scheduler")
-	go dbhelper.RetrieveEnabledChecksToBeScheduled(chRecords)
+	go RetrieveEnabledChecksToBeScheduled(chRecords)
 
 	for record = range chRecords {
 		recScheduledTotal++
@@ -126,7 +126,7 @@ func queue(record queuehelper.CheckRecordQueued) {
 
 	// for the moment we queue the whole record scheduled,
 	// maybe later down the line we want to slim down...or enrich?
-	err = queuehelper.PublishRequestForNewCheck(recordJson)
+	err = PublishRequestForNewCheck(recordJson)
 	if err != nil {
 		log.Fatal(err)
 	}
