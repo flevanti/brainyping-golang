@@ -205,15 +205,17 @@ func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus 
 func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 	if _, exists := checksStatuses[record.CheckId]; !exists {
 		newStatusChange := checkStatusType{
-			CheckId:                record.CheckId,
-			RequestId:              record.RequestId,
-			OwnerUid:               record.OwnerUid,
-			CurrentStatus:          STATUSINIT,
-			CurrentStatusSince:     time.Unix(record.ProcessedUnix, 0),
-			PreviousStatus:         "",
-			PreviousStatusSince:    time.Now(),
-			PreviousStatusDuration: time.Duration(0),
-			ChangeProcessedUnix:    time.Now().Unix(),
+			CheckId:                 record.CheckId,
+			RequestId:               record.RequestId,
+			OwnerUid:                record.OwnerUid,
+			CurrentStatus:           STATUSINIT,
+			CurrentStatusSince:      time.Unix(record.ProcessedUnix, 0),
+			CurrentStatusSinceUnix:  record.ProcessedUnix,
+			PreviousStatus:          "",
+			PreviousStatusSince:     time.Now(),
+			PreviousStatusSinceUnix: time.Now().Unix(),
+			PreviousStatusDuration:  time.Duration(0),
+			ChangeProcessedUnix:     time.Now().Unix(),
 		}
 		checksStatuses[record.CheckId] = newStatusChange
 		// logChange(record.CheckId)
