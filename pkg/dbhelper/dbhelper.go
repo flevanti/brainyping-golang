@@ -55,7 +55,7 @@ type CheckResponseRecordDb struct {
 	Message              string            `bson:"message"`
 	Redirects            int               `bson:"redirects"`
 	RedirectsHistory     []RedirectHistory `bson:"redirectshistory"`
-	RequestId            string            `bson:"requestid""`
+	RequestId            string            `bson:"requestid"`
 }
 
 type CheckOutcomeRecord struct {
@@ -138,11 +138,11 @@ func TablesList(dbClient *mongo.Client, dbName string) []string {
 	return list
 }
 
-func Connect(main_database string, connString string) {
+func Connect(mainDatabaseLocal string, connString string) {
 	if Initialised {
 		return
 	}
-	mainDatabase = main_database // database is not used in the connection string but stored for later use....
+	mainDatabase = mainDatabaseLocal // database is not used in the connection string but stored for later use....
 	var err error
 
 	ctx = context.Background()
