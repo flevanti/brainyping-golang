@@ -2,8 +2,10 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/utilities"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -53,4 +55,24 @@ func RetrieveEnabledChecksToBeScheduled(ch chan dbhelper.CheckRecord) {
 	// tell caller we are done here....
 	close(ch)
 	return
+}
+
+func saveRecordAsInFlight(record queuehelper.CheckRecordQueued) error {
+
+	var recToSave struct {
+		CheckId           string `bson:"checkid"`
+		Rid               string `bson:"rid"`
+		InFlightSinceUnix int64  `bson:"inflightsinceunix"`
+		InFlightSince     string `bson:"inflightsince"`
+	}
+
+	recToSave.Rid = record.RequestId
+	recToSave.CheckId = record.Record.CheckId
+	recToSave.InFlightSinceUnix = record.QueuedUnix
+	recToSave.InFlightSince = time.Unix(record.QueuedUnix, 0).Format(time.Stamp)
+
+	var recToSaveI interface{} = recToSave
+
+	return dbhelper.SaveRecord(dbhelper.GetDatabaseName(), dbhelper.TablenameChecksInFlight, recToSaveI)
+
 }

@@ -17,6 +17,7 @@ import (
 
 func FailOnError(err error) {
 	if err != nil {
+		fmt.Print("\n\n\n")
 		pc, filename, line, _ := runtime.Caller(1)
 		log.Printf("[error] %s[%s:%d] %v\n", runtime.FuncForPC(pc).Name(), filename, line, err)
 		pc, filename, line, _ = runtime.Caller(2)

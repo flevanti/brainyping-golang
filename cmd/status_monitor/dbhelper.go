@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"brainyping/pkg/dbhelper"
 	"brainyping/pkg/utilities"
@@ -111,4 +112,26 @@ func saveCheckCurrentStatus(checkId string, record interface{}) {
 	if res.Err() != nil && !errors.Is(res.Err(), mongo.ErrNoDocuments) {
 		utilities.FailOnError(res.Err())
 	}
+}
+
+func loadLastKnownStatus() {
+	var recsProcessed int
+	var record checkStatusType
+	cursor, err := dbhelper.GetClient().Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameChecksStatus).Find(nil, bson.M{}, options.Find())
+	utilities.FailOnError(err)
+
+	// loop the cursor and load the records....
+	for cursor.Next(nil) {
+		recsProcessed++
+		fmt.Printf("\rStatuses loaded %d    ", recsProcessed)
+		err = cursor.Decode(&record)
+		utilities.FailOnError(err)
+		// add the record in the bit array...
+		if _, b := checksStatuses[record.CheckId]; b {
+			utilities.FailOnError(errors.New(fmt.Sprintf("check id already present in array during initial data loading [%s]", record.CheckId)))
+		}
+		checksStatuses[record.CheckId] = record
+	} // end for cursor loop...
+
+	fmt.Println("Done!")
 }

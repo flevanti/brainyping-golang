@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"brainyping/pkg/dbhelper"
@@ -28,6 +31,7 @@ type checkStatusType struct {
 	PreviousStatusDurationSec int64         `bson:"previousstatusdurationsec"`
 	ChangeProcessedUnix       int64         `bson:"changeprocessedunix"`
 }
+
 type markerType struct {
 	RequestId    string
 	ResponseDbId string
@@ -37,6 +41,8 @@ type markerType struct {
 var checksStatuses = map[string]checkStatusType{}
 var checksStatusesMutex = sync.Mutex{}
 var marker markerType
+var ctx context.Context
+var cfunc context.CancelFunc
 
 const STATUSINIT = "INIT"
 const STATUSOK = "OK"
@@ -52,8 +58,16 @@ func main() {
 	var chWriteStatusCurrent = make(chan string, 100)
 
 	initapp.InitApp()
-	// TODO load current checks statuses
-	//  load last status monitor marker (to know where to continue from....)
+
+	// create the context
+	ctx, cfunc = context.WithCancel(context.Background())
+	defer cfunc()
+
+	go closeHandler()
+
+	fmt.Println("Loading last known checks statuses...")
+	loadLastKnownStatus()
+
 	retrieveLastStatusMonitorMarker()
 	fmt.Printf("MARKER FOUND: RID %s MID %s SOURCE %s\n", marker.RequestId, marker.ResponseDbId, marker.source)
 
@@ -68,8 +82,34 @@ func main() {
 
 	go writeStatusCurrentToDbBuffer(chWriteStatusCurrent)
 
+	go waitingForTheWorldToEnd()
+
 	select {}
 
+}
+
+func waitingForTheWorldToEnd() {
+	select {
+	case <-ctx.Done():
+		break
+		// not having a default make sure this is a blocking select/case until context is done...
+	}
+
+	fmt.Print("\n\nEXITING....\n\n")
+
+	time.Sleep(time.Second * 2)
+	fmt.Print("\n\nBYE BYE\n\n")
+
+	// this is it, it has been fun!
+	os.Exit(0)
+
+}
+
+func closeHandler() {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+	cfunc()
 }
 
 func writeStatusCurrentToDbBuffer(chWriteStatusCurrent chan string) {
@@ -84,6 +124,8 @@ func writeStatusCurrentToDbBuffer(chWriteStatusCurrent chan string) {
 			checksStatusesMutex.Unlock()
 
 			saveCheckCurrentStatus(checkId, recordI)
+		case <-ctx.Done():
+			return
 		} // end select
 	} // end for
 
@@ -121,8 +163,11 @@ func detectStatusChangesListener(chReadResponses chan dbhelper.CheckResponseReco
 			if detectStatusChanges(&record) {
 				chWriteStatusCurrent <- record.CheckId
 				chWriteStatusChanges <- record.CheckId
+				logChange(record.CheckId)
 			}
-
+		case <-ctx.Done():
+			fmt.Println("Status change goroutine listener ended")
+			return
 		default:
 
 		} // end select loop
@@ -141,6 +186,10 @@ func writeStatusChangesToDbBuffer(chWriteStatusChangesToDb chan string) {
 			checksStatusesMutex.Lock()
 			recordsToSave = append(recordsToSave, checksStatuses[checkId])
 			checksStatusesMutex.Unlock()
+		case <-ctx.Done():
+			writeStatusChangesToDb(&recordsToSave)
+			fmt.Println("Status changes buffer flushed")
+			return
 		default:
 
 		} // end select
@@ -177,7 +226,6 @@ func detectStatusChanges(record *dbhelper.CheckResponseRecordDb) bool {
 		checksStatusesMutex.Lock()
 		updateCheckStatusElement(record, responseStatusString)
 		checksStatusesMutex.Unlock()
-		logChange(record.CheckId)
 		return true
 	}
 	return false
@@ -199,6 +247,7 @@ func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus 
 	statusRecord.CurrentStatusSinceUnix = statusRecord.CurrentStatusSince.Unix()
 	statusRecord.ChangeProcessedUnix = time.Now().Unix()
 	statusRecord.PreviousStatusDuration = statusRecord.CurrentStatusSince.Sub(statusRecord.PreviousStatusSince)
+	statusRecord.PreviousStatusDurationSec = int64(time.Duration(statusRecord.PreviousStatusDuration) * time.Second)
 	checksStatuses[record.CheckId] = statusRecord
 }
 
@@ -223,6 +272,7 @@ func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 }
 
 func logChange(checkId string) {
+
 	log.Printf("Status change detected at %s for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s]\n",
 		checksStatuses[checkId].CurrentStatusSince.Format(time.Stamp),
 		checksStatuses[checkId].CheckId,

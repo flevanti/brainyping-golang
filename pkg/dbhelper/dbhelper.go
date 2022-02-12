@@ -71,18 +71,6 @@ type CheckOutcomeRecord struct {
 	Region           string            `bson:"region"`
 }
 
-type CheckStatusChangeRecordDb struct {
-	CheckId             string
-	OwnerUid            string
-	ChangeUnix          int
-	ChangePreviousUnix  int
-	Status              string
-	StatusPrevious      string
-	RequestId           string
-	ResponseDbId        string
-	ChangeProcessedUnix int
-}
-
 type RedirectHistory struct {
 	URL        string `bson:"url"`
 	Status     string `bson:"status"`
@@ -100,6 +88,7 @@ const TablenameResponse = "responses"
 const TablenameSettings = "settings"
 const TablenameChecksStatus = "checks_status"
 const TablenameChecksStatusChanges = "checks_status_changes"
+const TablenameChecksInFlight = "checks_inflight"
 
 const DBDBNAME = "DBDBNAME"
 const DBCONNSTRING = "DBCONNSTRING"

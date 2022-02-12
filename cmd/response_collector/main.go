@@ -17,6 +17,7 @@ import (
 	"brainyping/pkg/utilities"
 
 	"github.com/streadway/amqp"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -31,6 +32,7 @@ type metadataType struct {
 var endOfTheWorld bool
 var metadata metadataType
 var saveBuffer []interface{}
+var RequestIdsToRemoveFromInFlight bson.A
 
 const QUEUECONSUMERNAME = "response_collector"
 
@@ -118,14 +120,24 @@ func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 		select {
 		case record := <-chsave:
 			saveBuffer = append(saveBuffer, record)
+			RequestIdsToRemoveFromInFlight = append(RequestIdsToRemoveFromInFlight, record.RequestId)
 		default:
 
 		} // end select
 		if len(saveBuffer) >= settings.GetSettInt(RCBULKSAVESIZE) || time.Since(lastSaved) > settings.GetSettDuration(RCSAVEAUTOFLUSHMS)*time.Millisecond {
 			saveResponsesInDatabase()
+			deleteInFlightCheckIds()
 			lastSaved = time.Now()
+			saveBuffer = nil
+			RequestIdsToRemoveFromInFlight = bson.A{}
 		}
 	} // end for loop
+}
+
+func deleteInFlightCheckIds() {
+
+	_, err := dbhelper.GetClient().Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameChecksInFlight).DeleteMany(nil, bson.M{"rid": bson.M{"$in": RequestIdsToRemoveFromInFlight}}, &options.DeleteOptions{})
+	utilities.FailOnError(err)
 }
 
 func saveResponsesInDatabase() {
@@ -134,7 +146,7 @@ func saveResponsesInDatabase() {
 	}
 	err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &saveBuffer)
 	utilities.FailOnError(err)
-	saveBuffer = nil
+
 }
 
 func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.CheckResponseRecordDb {
