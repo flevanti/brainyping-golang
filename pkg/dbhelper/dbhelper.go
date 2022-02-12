@@ -2,10 +2,7 @@ package dbhelper
 
 import (
 	"context"
-	"fmt"
-	"log"
 
-	"brainyping/pkg/settings"
 	"brainyping/pkg/utilities"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -26,6 +23,7 @@ type CheckRecord struct {
 	Type               string   `bson:"type"`
 	SubType            string   `bson:"subtype"`
 	Frequency          int      `bson:"frequency"`
+	UserAgent          string   `bson:"useragent"`
 	Regions            []string `bson:"regions"`
 	RegionsEachTime    int      `bson:"regionseachtime"`
 	Enabled            bool     `bson:"enabled"`
@@ -36,6 +34,7 @@ type CheckRecord struct {
 }
 
 type CheckResponseRecordDb struct {
+	MongoDbId            string            `bson:"_id,omitempty"`
 	CheckId              string            `bson:"checkid"`
 	Region               string            `bson:"region"`
 	ScheduledTimeUnix    int64             `bson:"scheduledtimeunix"`
@@ -56,6 +55,7 @@ type CheckResponseRecordDb struct {
 	Message              string            `bson:"message"`
 	Redirects            int               `bson:"redirects"`
 	RedirectsHistory     []RedirectHistory `bson:"redirectshistory"`
+	RequestId            string            `bson:"requestid"`
 }
 
 type CheckOutcomeRecord struct {
@@ -86,29 +86,17 @@ type SettingType struct {
 const TablenameChecks = "checks"
 const TablenameResponse = "responses"
 const TablenameSettings = "settings"
+const TablenameChecksStatus = "checks_status"
+const TablenameChecksStatusChanges = "checks_status_changes"
+const TablenameChecksInFlight = "checks_inflight"
+
+const DBDBNAME = "DBDBNAME"
+const DBCONNSTRING = "DBCONNSTRING"
+
+var mainDatabase string
 
 func GetDatabaseName() string {
-	return settings.GetSettStr("DBDBNAME")
-}
-
-func GetSettings() ([]SettingType, error) {
-	var result SettingType
-	var results []SettingType
-	var err error
-	cursor, err := GetClient().Database(GetDatabaseName()).Collection(TablenameSettings).Find(nil, bson.M{})
-	if err != nil {
-		return nil, err
-	}
-	for cursor.Next(ctx) {
-
-		err = cursor.Decode(&result)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, result)
-	} // end for loop
-
-	return results, nil
+	return mainDatabase
 }
 
 func DeleteTable(dbClient *mongo.Client, dbName string, tableName string) error {
@@ -139,26 +127,14 @@ func TablesList(dbClient *mongo.Client, dbName string) []string {
 	return list
 }
 
-func CountEnabledChecks() int64 {
-	coll := GetClient().Database("brainyping").Collection("checks")
-
-	count, err := coll.CountDocuments(context.TODO(), bson.M{"enabled": true})
-	_ = count
-	if err != nil {
-		log.Fatalf("OOOUCH " + err.Error())
-	}
-	// convert the cursor result to bson
-	return count
-}
-
-func Connect() {
+func Connect(mainDatabaseLocal string, connString string) {
 	if Initialised {
 		return
 	}
+	mainDatabase = mainDatabaseLocal // database is not used in the connection string but stored for later use....
 	var err error
 
 	ctx = context.Background()
-	connString := settings.GetSettStr("DBCONNSTRING")
 	clientOptions := options.Client().ApplyURI(connString)
 
 	client, err = mongo.Connect(context.Background(), clientOptions)
@@ -180,8 +156,19 @@ func Disconnect() {
 func SaveManyRecords(db string, collection string, records *[]interface{}) error {
 	coll := GetClient().Database(db).Collection(collection)
 
-	res, err := coll.InsertMany(ctx, *records)
-	_ = res
+	_, err := coll.InsertMany(ctx, *records)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func SaveRecord(db string, collection string, document interface{}) error {
+	coll := GetClient().Database(db).Collection(collection)
+
+	_, err := coll.InsertOne(ctx, document)
+
 	if err != nil {
 		return err
 	}
@@ -190,57 +177,6 @@ func SaveManyRecords(db string, collection string, records *[]interface{}) error
 
 func DeleteRecordsByFieldValue(db string, collection string, field string, value interface{}) (*mongo.DeleteResult, error) {
 	return GetClient().Database(db).Collection(collection).DeleteOne(context.TODO(), bson.M{field: value})
-}
-
-func GetRecords() {
-	fmt.Println("reading records!!!!")
-	coll := GetClient().Database("brainyping").Collection("checks")
-	cursor, err := coll.Find(context.TODO(), bson.D{})
-	if err != nil {
-		log.Fatalf("OOOUCH " + err.Error())
-	}
-	// convert the cursor result to bson
-	var result bson.M
-	var i int64
-	for cursor.Next(ctx) {
-		i++
-		_ = cursor.Decode(&result)
-		fmt.Print("(", i, ")", result["name"], "  ---   ")
-	}
-
-}
-
-func RetrieveEnabledChecksToBeScheduled(ch chan CheckRecord) {
-	coll := GetClient().Database("brainyping").Collection("checks")
-	opts := options.Find().SetProjection(bson.D{
-		{"checkid", 1},
-		{"name", 1},
-		{"host", 1},
-		{"port", 1},
-		{"type", 1},
-		{"subtype", 1},
-		{"frequency", 1},
-		{"regions", 1},
-		{"regionseachtime", 1},
-		{"owneruid", 1},
-		{"startschedtimeunix", 1},
-	})
-	cursor, err := coll.Find(context.TODO(), bson.M{"enabled": true}, opts)
-	if err != nil {
-		log.Fatalf("OOOUCH " + err.Error())
-	}
-	// convert the cursor result to bson
-	var result CheckRecord
-	var i int64
-	for cursor.Next(ctx) {
-		i++
-		err = cursor.Decode(&result)
-		utilities.FailOnError(err)
-		ch <- result
-	}
-	// tell caller we are done here....
-	close(ch)
-	return
 }
 
 func GetClient() *mongo.Client {

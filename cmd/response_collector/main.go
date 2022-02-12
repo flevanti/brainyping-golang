@@ -17,6 +17,7 @@ import (
 	"brainyping/pkg/utilities"
 
 	"github.com/streadway/amqp"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -31,6 +32,14 @@ type metadataType struct {
 var endOfTheWorld bool
 var metadata metadataType
 var saveBuffer []interface{}
+var RequestIdsToRemoveFromInFlight bson.A
+
+const QUEUECONSUMERNAME = "response_collector"
+
+const RCGRACEPERIODMS = "RC_GRACE_PERIOD_MS"
+const RCBULKSAVESIZE = "RC_BULK_SAVE_SIZE"
+const RCSAVEAUTOFLUSHMS = "RC_SAVE_AUTO_FLUSH_MS"
+const RCBUFCHSIZE = "RC_BUF_CH_SIZE"
 
 func main() {
 	initapp.InitApp()
@@ -41,16 +50,16 @@ func main() {
 	defer cfunc()
 
 	// create the channel used by the queue consumer to buffer fetched messages
-	chReceive := make(chan amqp.Delivery, settings.GetSettInt("RC_BUF_CH_SIZE"))
+	chReceive := make(chan amqp.Delivery, settings.GetSettInt(RCBUFCHSIZE))
 	chSave := make(chan dbhelper.CheckResponseRecordDb)
 
 	// pass the context cancel function to the close handler
 	closeHandler(cfunc)
 
 	// start the queue consumer...
-	go queuehelper.ConsumeQueueForResponsesToChecks(ctx, chReceive)
+	go ConsumeQueueForResponsesToChecks(ctx, chReceive)
 
-	dbhelper.Connect()
+	dbhelper.Connect(settings.GetSettStr(dbhelper.DBDBNAME), settings.GetSettStr(dbhelper.DBCONNSTRING))
 	defer dbhelper.Disconnect()
 
 	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
@@ -85,7 +94,7 @@ forloop:
 			metadata.lastMsgTime = time.Now()
 			err = json.Unmarshal(response.Body, &messageQueued)
 			utilities.FailOnError(err)
-			if messageQueued.RecordOutcome.Success {
+			if !messageQueued.RecordOutcome.Success {
 				metadata.msgFailed++
 			}
 			messageQueued.ReceivedByResponseHandler = time.Now().Unix()
@@ -94,7 +103,7 @@ forloop:
 		case <-ctx.Done():
 			metadata.inGracePeriod = true
 
-			if time.Since(metadata.lastMsgTime) > settings.GetSettDuration("RC_GRACE_PERIOD_MS")*time.Millisecond {
+			if time.Since(metadata.lastMsgTime) > settings.GetSettDuration(RCGRACEPERIODMS)*time.Millisecond {
 				metadata.stopped = true
 				break forloop
 			}
@@ -111,18 +120,33 @@ func saveResponseInBuffer(chsave chan dbhelper.CheckResponseRecordDb) {
 		select {
 		case record := <-chsave:
 			saveBuffer = append(saveBuffer, record)
-			if len(saveBuffer) >= settings.GetSettInt("RC_BULK_SAVE_SIZE") || time.Since(lastSaved) > settings.GetSettDuration("RC_SAVE_AUTO_FLUSH_MS")*time.Second {
-				saveResponsesInDatabase()
-			}
+			RequestIdsToRemoveFromInFlight = append(RequestIdsToRemoveFromInFlight, record.RequestId)
 		default:
+
+		} // end select
+		if len(saveBuffer) >= settings.GetSettInt(RCBULKSAVESIZE) || time.Since(lastSaved) > settings.GetSettDuration(RCSAVEAUTOFLUSHMS)*time.Millisecond {
+			saveResponsesInDatabase()
+			deleteInFlightCheckIds()
+			lastSaved = time.Now()
+			saveBuffer = nil
+			RequestIdsToRemoveFromInFlight = bson.A{}
 		}
-	}
+	} // end for loop
+}
+
+func deleteInFlightCheckIds() {
+
+	_, err := dbhelper.GetClient().Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameChecksInFlight).DeleteMany(nil, bson.M{"rid": bson.M{"$in": RequestIdsToRemoveFromInFlight}}, &options.DeleteOptions{})
+	utilities.FailOnError(err)
 }
 
 func saveResponsesInDatabase() {
+	if len(saveBuffer) == 0 {
+		return
+	}
 	err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &saveBuffer)
 	utilities.FailOnError(err)
-	saveBuffer = nil
+
 }
 
 func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.CheckResponseRecordDb {
@@ -148,6 +172,7 @@ func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.Check
 	response.Redirects = record.RecordOutcome.Redirects
 	response.RedirectsHistory = record.RecordOutcome.RedirectsHistory
 	response.CreatedUnix = time.Now().Unix()
+	response.RequestId = record.RequestId
 	return response
 
 }

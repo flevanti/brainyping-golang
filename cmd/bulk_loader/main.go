@@ -17,12 +17,16 @@ import (
 
 var recordsToSave []interface{}
 
+const BLOWNERUID = "BL_OWNERUID"
+const BLRPSSPREAD = "BL_RPS_SPREAD"
+const BLBULKSAVESIZE = "BL_BULK_SAVE_SIZE"
+
 func main() {
 	initapp.InitApp()
 	timeStart := time.Now()
 	fmt.Println("Process started at ", timeStart.Format(time.ANSIC))
 	fmt.Println("Current memory usage: ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
-	dbhelper.Connect()
+	dbhelper.Connect(settings.GetSettStr(dbhelper.DBDBNAME), settings.GetSettStr(dbhelper.DBCONNSTRING))
 	defer dbhelper.Disconnect()
 
 	readAndWrite()
@@ -55,7 +59,7 @@ func readAndWrite() {
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
-		if recordsInCurrentSecond >= settings.GetSettInt("BL_RPS_SPREAD")/2 {
+		if recordsInCurrentSecond >= settings.GetSettInt(BLRPSSPREAD)/2 {
 			recordsInCurrentSecond = 0
 			startSchedTimeUnix--
 		}
@@ -79,7 +83,7 @@ func readAndWrite() {
 			StartSchedTimeUnix: startSchedTimeUnix,
 			CreatedUnix:        creationTimeUnix,
 			UpdatedUnix:        creationTimeUnix,
-			OwnerUid:           settings.GetSettStr("BL_OWNERUID"),
+			OwnerUid:           settings.GetSettStr(BLOWNERUID),
 		}
 		record.Name = scanner.Text() + record.Type + record.SubType
 		recordsToSave = append(recordsToSave, record)
@@ -94,7 +98,7 @@ func readAndWrite() {
 		recsSaved++
 		recsInBufferList++
 
-		if recsInBufferList >= settings.GetSettInt("BL_BULK_SAVE_SIZE") {
+		if recsInBufferList >= settings.GetSettInt(BLBULKSAVESIZE) {
 			err := dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameChecks, &recordsToSave) // pass by reference to save some memory?
 			utilities.FailOnError(err)
 			// cleaning up...

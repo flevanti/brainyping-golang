@@ -15,35 +15,29 @@ import (
 // just return a nice error
 //
 
-type SettingType struct {
-	Key   string `bson:"key"`
-	Value string `bson:"value"`
-	Descr string `bson:"descr"`
-}
-
-func getListOfSettings() []SettingType {
+func getListOfSettings() []dbhelper.SettingType {
 	userAgent := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
-	settings := []SettingType{
-		{Key: "WRK_HTTP_TIMEOUT_MS", Value: "10000", Descr: "Timeout used during http checks"},
-		{Key: "WRK_GOROUTINES", Value: "30", Descr: "number of goroutines to start for each worker"},
-		{Key: "WRK_THROTTLE_RPS", Value: "50", Descr: "limit the number of request that each worker performs every second"},
-		{Key: "WRK_BUF_CH_SIZE", Value: "100", Descr: "size of buffered channel used to pass requests from the queue to the goroutines"},
-		{Key: "WRK_GRACE_PERIOD_MS", Value: "10000", Descr: "time since last request processed that each go routine wait before stopping. Used for gracefully stopping the application"},
-		{Key: "WRK_WRKS_READY_TIMEOUT_MS", Value: "15000", Descr: "time for all the goroutines started to be ready to work"},
-		{Key: "WRK_HTTP_USER_AGENT", Value: userAgent, Descr: "user agent used during HTTP requests"},
-		{Key: "QUEUE_PREFETCH_COUNT", Value: "100", Descr: "number of messages to consume each request"},
-		{Key: "QUEUENAME_REQUEST", Value: "brainypingqueue", Descr: "queue name used for sending/receiving checks requests"},
-		{Key: "QUEUENAME_RESPONSE", Value: "brainypingresponsequeue", Descr: "queue name used for sending/receiving processed checks responses "},
-		{Key: "BL_RPS_SPREAD", Value: "10", Descr: "number of requests per seconds spread each second. this is used when bulk loading checks to avoid having all the checks/requests happening in the same second"},
-		{Key: "BL_OWNERUID", Value: "BL-OWNERUID", Descr: "user id of the owner of the check loaded during a bulk load"},
-		{Key: "BL_BULK_SAVE_SIZE", Value: "1000", Descr: "number of records to include in each saving operation"},
-		{Key: "RC_BUF_CH_SIZE", Value: "100", Descr: "size of the buffered channel used to pass responses from the queue consumer to the response collector process"},
-		{Key: "RC_GRACE_PERIOD_MS", Value: "5000", Descr: "time to wait before closing the application to make sure all buffered responses are saved"},
-		{Key: "RC_BULK_SAVE_SIZE", Value: "100", Descr: "number of records to include in each saving operation"},
-		{Key: "RC_SAVE_AUTO_FLUSH_MS", Value: "10000", Descr: "max time waited before buffered responses are saved even if the limit is not reached. This is to avoid having records only staged in memory for too long"},
+	settingsRecords := []dbhelper.SettingType{
+		{Key: "WRK_HTTP_TIMEOUT_MS", Value: "10000", Description: "Timeout used during http checks"},
+		{Key: "WRK_GOROUTINES", Value: "30", Description: "number of goroutines to start for each worker"},
+		{Key: "WRK_THROTTLE_RPS", Value: "50", Description: "limit the number of request that each worker performs every second"},
+		{Key: "WRK_BUF_CH_SIZE", Value: "100", Description: "size of buffered channel used to pass requests from the queue to the goroutines"},
+		{Key: "WRK_GRACE_PERIOD_MS", Value: "10000", Description: "time since last request processed that each go routine wait before stopping. Used for gracefully stopping the application"},
+		{Key: "WRK_WRKS_READY_TIMEOUT_MS", Value: "15000", Description: "time for all the goroutines started to be ready to work"},
+		{Key: "WRK_HTTP_USER_AGENT", Value: userAgent, Description: "user agent used during HTTP requests"},
+		{Key: "QUEUE_PREFETCH_COUNT", Value: "100", Description: "number of messages to consume each request"},
+		{Key: "QUEUENAME_REQUEST", Value: "brainypingqueue", Description: "queue name used for sending/receiving checks requests"},
+		{Key: "QUEUENAME_RESPONSE", Value: "brainypingresponsequeue", Description: "queue name used for sending/receiving processed checks responses "},
+		{Key: "BL_RPS_SPREAD", Value: "10", Description: "number of requests per seconds spread each second. this is used when bulk loading checks to avoid having all the checks/requests happening in the same second"},
+		{Key: "BL_OWNERUID", Value: "BL-OWNERUID", Description: "user id of the owner of the check loaded during a bulk load"},
+		{Key: "BL_BULK_SAVE_SIZE", Value: "1000", Description: "number of records to include in each saving operation"},
+		{Key: "RC_BUF_CH_SIZE", Value: "100", Description: "size of the buffered channel used to pass responses from the queue consumer to the response collector process"},
+		{Key: "RC_GRACE_PERIOD_MS", Value: "5000", Description: "time to wait before closing the application to make sure all buffered responses are saved"},
+		{Key: "RC_BULK_SAVE_SIZE", Value: "100", Description: "number of records to include in each saving operation"},
+		{Key: "RC_SAVE_AUTO_FLUSH_MS", Value: "10000", Description: "max time waited before buffered responses are saved even if the limit is not reached. This is to avoid having records only staged in memory for too long"},
 	}
 
-	return settings
+	return settingsRecords
 }
 
 func getSettingsInterface() []interface{} {
@@ -55,9 +49,9 @@ func getSettingsInterface() []interface{} {
 }
 
 func up_20220202214331(db *mongo.Client) error {
-	settings := getSettingsInterface()
+	settingsRecords := getSettingsInterface()
 
-	return dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, &settings)
+	return dbhelper.SaveManyRecords(dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, &settingsRecords)
 }
 
 func down_20220202214331(db *mongo.Client) error {

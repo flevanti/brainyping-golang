@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"brainyping/pkg/checks"
+	"brainyping/pkg/checks/httpcheck"
 	"brainyping/pkg/initapp"
 	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/settings"
@@ -56,13 +57,22 @@ const WRKNEW = "NEW"
 const WRKSTSREADY = "READY"
 const WRKSTSCOOL = "COOL"
 const WRKSTSSTOP = "STOP"
-const WRKUNK = "UNK"
 const STATISTICSTIMEOUT = 20 * time.Second
+const WRKTHROTTLERPS = "WRK_THROTTLE_RPS"
+const WRKGRACEPERIODMS = "WRK_GRACE_PERIOD_MS"
+const WRKWRKSREADYTIMEOUTMS = "WRK_WRKS_READY_TIMEOUT_MS"
+const WRKBUFCHSIZE = "WRK_BUF_CH_SIZE"
+const WORKERREGION = "WORKER_REGION"
+const WORKERSUBREGION = "WORKER_SUBREGION"
+const WRKGOROUTINES = "WRK_GOROUTINES"
+const WRKHTTPUSERAGENT = "WRK_HTTP_USER_AGENT"
+const QUEUECONSUMERNAME = "worker"
 
 func main() {
 	initapp.InitApp()
 	queuehelper.InitQueue()
 	printGreetings()
+	httpcheck.HttpCheckDefaultUserAgent = settings.GetSettStr(WRKHTTPUSERAGENT)
 
 	// initialise the throttle channel, please note that the variable already exists in the global scope
 	throttlerChannel = make(chan int)
@@ -72,7 +82,7 @@ func main() {
 	defer cfunc()
 
 	// create the channel used by the queue consumer to buffer fetched messages
-	ch := make(chan amqp.Delivery, settings.GetSettInt("WRK_BUF_CH_SIZE"))
+	ch := make(chan amqp.Delivery, settings.GetSettInt(WRKBUFCHSIZE))
 
 	// pass the context cancel function to the close handler
 	closeHandler(cfunc)
@@ -87,7 +97,7 @@ func main() {
 	throttler()
 
 	// start the queue consumer...
-	go queuehelper.ConsumeQueueForPendingChecks(ctx, ch)
+	go ConsumeQueueForPendingChecks(ctx, ch)
 
 	go waitingForTheWorldToEnd(ctx)
 
@@ -98,7 +108,7 @@ func main() {
 // above a certain limit it is probably better to multiply by [n] the sleep and multiply by [n] the elements pushed in the channel
 // otherwise there's the risk that one element at the time will create a sort of cap
 func throttler() {
-	duration := time.Second / settings.GetSettDuration("WRK_THROTTLE_RPS")
+	duration := time.Second / settings.GetSettDuration(WRKTHROTTLERPS)
 	go func() {
 		for {
 			throttlerChannel <- 1
@@ -110,20 +120,20 @@ func throttler() {
 func printGreetings() {
 	utilities.ClearScreen()
 	headers := []string{"REGION", "SUBREGION", "HOSTNAME", "IP"}
-	row := [][]string{{settings.GetSettStr("WORKER_REGION"), settings.GetSettStr("WORKER_SUBREGION"), workerHostName, workerIP}}
+	row := [][]string{{settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION), workerHostName, workerIP}}
 	utilities.PrintTable(headers, row)
 }
 
 func startTheWorkers(ctx context.Context, ch chan amqp.Delivery) {
-	fmt.Printf("STARTING %d WORKERS\n", settings.GetSettInt("WRK_GOROUTINES"))
+	fmt.Printf("STARTING %d WORKERS\n", settings.GetSettInt(WRKGOROUTINES))
 	// crate the metadata array for all the workers THEN starts the go routine
 	// this to avoid that a go routine could update the "ready" status while we perform the append
 	// being part of the bootstrap of the app it is not really a problem and if something goes wrong we can see it immediately...
 	// but we could have done it a bit better and more elegantly....
-	for i := 0; i < settings.GetSettInt("WRK_GOROUTINES"); i++ {
+	for i := 0; i < settings.GetSettInt(WRKGOROUTINES); i++ {
 		workersMetadata.workerMetadata = append(workersMetadata.workerMetadata, workerMetadataType{WorkerStatus: WRKNEW, startTime: time.Now(), workerID: i})
 	}
-	for i := 0; i < settings.GetSettInt("WRK_GOROUTINES"); i++ {
+	for i := 0; i < settings.GetSettInt(WRKGOROUTINES); i++ {
 		go worker(ctx, ch, i)
 	}
 }
@@ -168,19 +178,19 @@ forloop:
 			messageQueued.ReceivedByWorkerUnix = time.Now().Unix()
 
 			_ = check.Ack(false)
-			err = checks.ProcessCheck(&messageQueued)
+			err = checks.ProcessCheckFromQueue(&messageQueued)
 			if err != nil {
 				workersMetadata.workerMetadata[metadataIndex].msgFailed++
 			}
 			messageQueued.QueuedReturnUnix = time.Now().Unix()
-			messageQueued.RecordOutcome.Region = settings.GetSettStr("WORKER_REGION")
+			messageQueued.RecordOutcome.Region = settings.GetSettStr(WORKERREGION)
 
 			jsonRecord, _ := json.Marshal(messageQueued)
-			_ = queuehelper.PublishResponseForCheckProcessed(jsonRecord)
+			_ = PublishResponseForCheckProcessed(jsonRecord)
 
 		case <-ctx.Done():
 			workersMetadata.workerMetadata[metadataIndex].WorkerStatus = WRKSTSCOOL
-			if time.Since(workersMetadata.workerMetadata[metadataIndex].lastMsgTime) > settings.GetSettDuration("WRK_GRACE_PERIOD_MS")*time.Millisecond {
+			if time.Since(workersMetadata.workerMetadata[metadataIndex].lastMsgTime) > settings.GetSettDuration(WRKGRACEPERIODMS)*time.Millisecond {
 				workersMetadata.workerMetadata[metadataIndex].WorkerStatus = WRKSTSSTOP
 				break forloop
 			}
@@ -204,7 +214,7 @@ func unmarshalMessageBody(body *[]byte, unmarshalledMessage *queuehelper.CheckRe
 // we could have used a waitgroup....?
 func allWorkersReady() {
 	var readyCount int = 0
-	var maxWait time.Duration = time.Millisecond * settings.GetSettDuration("WRK_WRKS_READY_TIMEOUT_MS")
+	var maxWait time.Duration = time.Millisecond * settings.GetSettDuration(WRKWRKSREADYTIMEOUTMS)
 	var bootTime time.Time = time.Now()
 	var percReady float32
 
@@ -217,15 +227,15 @@ func allWorkersReady() {
 				readyCount++
 			}
 		}
-		if settings.GetSettInt("WRK_GOROUTINES") == readyCount {
+		if settings.GetSettInt(WRKGOROUTINES) == readyCount {
 			fmt.Printf("\r✅  (it took %.3fs)\n", float64(time.Since(bootTime))/float64(time.Second))
 			return
 		}
 		if time.Since(bootTime) > maxWait {
 			utilities.FailOnError(errors.New("workers not ready"))
 		}
-		percReady = float32(readyCount) / float32(settings.GetSettInt("WRK_GOROUTINES")) * 100
-		fmt.Printf("%.2f%% (%d/%d)      \r", percReady, readyCount, settings.GetSettInt("WRK_GOROUTINES"))
+		percReady = float32(readyCount) / float32(settings.GetSettInt(WRKGOROUTINES)) * 100
+		fmt.Printf("%.2f%% (%d/%d)      \r", percReady, readyCount, settings.GetSettInt(WRKGOROUTINES))
 	} // end for
 
 	// nothing here!
@@ -244,7 +254,7 @@ func allWorkersGracefullyEnded() bool {
 				stopped++
 			}
 		}
-		if settings.GetSettInt("WRK_GOROUTINES") == stopped {
+		if settings.GetSettInt(WRKGOROUTINES) == stopped {
 			// wait an extra couple of second to give time to the statistics to refresh on screen...
 			time.Sleep(time.Second * 2)
 			// this is it... bye bye....

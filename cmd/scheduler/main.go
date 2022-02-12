@@ -14,6 +14,7 @@ import (
 	"brainyping/pkg/utilities"
 
 	"github.com/go-co-op/gocron"
+	"github.com/google/uuid"
 )
 
 var scheduler *gocron.Scheduler
@@ -28,7 +29,7 @@ func main() {
 	fmt.Printf("Boot time is %s\n", initapp.GetBootTime().Format(time.Stamp))
 
 	// count enabled checks to plan
-	count := dbhelper.CountEnabledChecks()
+	count := CountEnabledChecks()
 	if count == 0 {
 		fmt.Println("No checks to plan, bye bye.... ")
 		return
@@ -73,7 +74,7 @@ func scheduleChecks() {
 
 	chRecords := make(chan dbhelper.CheckRecord)
 	fmt.Println("Adding records to scheduler")
-	go dbhelper.RetrieveEnabledChecksToBeScheduled(chRecords)
+	go RetrieveEnabledChecksToBeScheduled(chRecords)
 
 	for record = range chRecords {
 		recScheduledTotal++
@@ -113,6 +114,7 @@ func queue(record queuehelper.CheckRecordQueued) {
 		return
 	}
 	atomic.AddInt64(&jobsQueuedSinceBoot, 1)
+	record.RequestId = fmt.Sprintf("%d--%s", time.Now().UnixNano(), uuid.NewString())
 	record.QueuedUnix = time.Now().Unix()
 	record.ScheduledUnix = record.QueuedUnix // use the same time as the queued time, we don't have a better alternative right now.
 	var recordJson, err = json.Marshal(record)
@@ -124,29 +126,19 @@ func queue(record queuehelper.CheckRecordQueued) {
 
 	// for the moment we queue the whole record scheduled,
 	// maybe later down the line we want to slim down...or enrich?
-	err = queuehelper.PublishRequestForNewCheck(recordJson)
+	err = PublishRequestForNewCheck(recordJson)
 	if err != nil {
+		// TODO MAYBE WE DON'T WANT TO DIE BUT LOG AND TRY TO CONTINUE?
 		log.Fatal(err)
 	}
 
-}
+	err = saveRecordAsInFlight(record)
+	if err != nil {
+		// TODO LOG SOMEWHERE... FOR THE MOMENT SCREAM A LITTLE BIT...
+		// WE DON'T WANT TO KILL THE SCHEDULER FOR THIS ERROR....
+		fmt.Printf("\n\nERROR WHILE SAVING RECORD IN FLIGH\n\nRID %s\n%d\n%s\n\n", record.RequestId, record.ScheduledUnix, err.Error())
+	}
 
-// Ok so this is tricky and probably not necessary.
-// Unless the scheduled time is exactly the current timestamp 🍾
-// we will consider the scheduled time the nearest one in the past
-// we are basically assuming that we are a little behind schedule... not ahead....
-//
-//
-// CURRENTLY DEPRECATED TO FIND A BETTER APPROACH OR IMPROVE THIS....
-func calculateScheduledTime(startedAt *int64, frequency *int64) int64 {
-
-	currentTimeUnix := time.Now().Unix()
-
-	// add to the initial start time as many "frequency" as calculated dividing the difference in seconds between the start time and now
-	// basically ... start time is 100, frequency is 20, current time is 230, the nearest scheduled time in the past is 220.
-
-	// oooh boy so many *****
-	return *startedAt + *frequency*((currentTimeUnix-*startedAt) / *frequency)
 }
 
 func ShowMemoryStatsWhileSchedulerIsRunning() {

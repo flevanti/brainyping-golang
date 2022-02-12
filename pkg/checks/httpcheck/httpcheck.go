@@ -9,16 +9,17 @@ import (
 	"time"
 
 	"brainyping/pkg/dbhelper"
-	"brainyping/pkg/settings"
 )
 
-func ProcessCheck(url string, method string, subType string) (dbhelper.CheckOutcomeRecord, error) {
+var HttpCheckDefaultUserAgent string
+
+func ProcessCheck(url string, subType string, userAgent string) (dbhelper.CheckOutcomeRecord, error) {
 	var outcome dbhelper.CheckOutcomeRecord
 	var err error
 
 	switch subType {
 	case "HEAD", "GET":
-		outcome, err = subTypeGetHead(url, subType)
+		outcome, err = subTypeGetHead(url, subType, userAgent)
 		break
 	// case "HEAD":
 	//	subTypeGetHead(url, "HEAD")
@@ -27,20 +28,21 @@ func ProcessCheck(url string, method string, subType string) (dbhelper.CheckOutc
 		outcome, err = subTypeRobotstxt(url)
 		break
 	default:
-		err = errors.New("method subtype not correct")
+		err = errors.New("subType subtype not correct")
 	}
 
 	return outcome, err
 }
 
-func subTypeGetHead(url string, method string) (dbhelper.CheckOutcomeRecord, error) {
+func subTypeGetHead(url string, method string, userAgent string) (dbhelper.CheckOutcomeRecord, error) {
 	var err error
 	var cookieJar *cookiejar.Jar
 	var client http.Client
 	var request *http.Request
 	var response *http.Response
-	var timeout = settings.GetSettDuration("WRK_HTTP_TIMEOUT_MS") * time.Millisecond
+	var timeout = 10000 * time.Millisecond
 	var returnedValue dbhelper.CheckOutcomeRecord
+	var userAgentToUse string
 
 	cookieJar, err = cookiejar.New(nil)
 	if err != nil {
@@ -63,7 +65,13 @@ func subTypeGetHead(url string, method string) (dbhelper.CheckOutcomeRecord, err
 		return returnedValue, err
 	}
 
-	request.Header.Set("User-Agent", settings.GetSettStr("WRK_HTTP_USER_AGENT"))
+	if userAgent != "" {
+		userAgentToUse = userAgent
+	} else {
+		userAgentToUse = HttpCheckDefaultUserAgent
+	}
+
+	request.Header.Set("User-Agent", userAgentToUse)
 
 	response, err = client.Do(request)
 
