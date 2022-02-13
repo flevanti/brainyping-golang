@@ -1,6 +1,7 @@
 package httpcheck
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -43,6 +44,9 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 	var timeout = 10000 * time.Millisecond
 	var returnedValue dbhelper.CheckOutcomeRecord
 	var userAgentToUse string
+	var ctx, cancelFunc = context.WithCancel(context.TODO())
+
+	defer cancelFunc()
 
 	cookieJar, err = cookiejar.New(nil)
 	if err != nil {
@@ -56,6 +60,9 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 		Timeout: timeout,
 		Jar:     cookieJar,
 	}
+
+	client.CloseIdleConnections()
+
 	request, err = http.NewRequest(method, url, nil)
 	if err != nil {
 		returnedValue.ErrorInternal = "Error while preparing http request: " + err.Error()
@@ -64,6 +71,8 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 		returnedValue.Message = returnedValue.ErrorFriendly
 		return returnedValue, err
 	}
+	request.Close = true
+	request.WithContext(ctx)
 
 	if userAgent != "" {
 		userAgentToUse = userAgent
@@ -82,6 +91,8 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 		returnedValue.Message = returnedValue.ErrorFriendly
 		return returnedValue, err
 	}
+	defer response.Body.Close()
+	response.Close = true
 
 	returnedValue.Message = fmt.Sprintf("%s ||%d", response.Status, response.StatusCode)
 
