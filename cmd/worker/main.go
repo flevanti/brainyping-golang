@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -186,8 +187,10 @@ forloop:
 			messageQueued.RecordOutcome.Region = settings.GetSettStr(WORKERREGION)
 
 			jsonRecord, _ := json.Marshal(messageQueued)
-			_ = PublishResponseForCheckProcessed(jsonRecord)
-
+			err = PublishResponseForCheckProcessed(jsonRecord)
+			if err != nil {
+				log.Printf("error while pushing response back to queue: %s", err.Error())
+			}
 		case <-ctx.Done():
 			workersMetadata.workerMetadata[metadataIndex].WorkerStatus = WRKSTSCOOL
 			if time.Since(workersMetadata.workerMetadata[metadataIndex].lastMsgTime) > settings.GetSettDuration(WRKGRACEPERIODMS)*time.Millisecond {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/settings"
@@ -20,6 +21,8 @@ func PublishResponseForCheckProcessed(body []byte) error {
 }
 
 func ConsumeQueueForPendingChecks(ctx context.Context, ch chan<- amqp.Delivery) {
+	var lastMessageReceived time.Time
+	var coolingDown bool
 	msgs, err := queuehelper.GetQueueBrokerChannel().Consume(settings.GetSettStr(queuehelper.QUEUENAMEREQUEST),
 		QUEUECONSUMERNAME,
 		false,
@@ -31,14 +34,26 @@ func ConsumeQueueForPendingChecks(ctx context.Context, ch chan<- amqp.Delivery) 
 	utilities.FailOnError(err)
 
 	for {
+		a := len(msgs)
+		_ = a
 		select {
 		case msg := <-msgs:
 			ch <- msg
+			lastMessageReceived = time.Now()
+
 		case <-ctx.Done():
 			// the context was cancelled, stop working
 			// cancel the consumer...
-			_ = queuehelper.GetQueueBrokerChannel().Cancel(QUEUECONSUMERNAME, false)
-			return
+			if !coolingDown {
+				_ = queuehelper.GetQueueBrokerChannel().Cancel(QUEUECONSUMERNAME, false)
+				coolingDown = true
+				continue
+			}
+			// TODO THIS MECHANISM IS NOT YET COMPLETED, THE OVERALL SHUTTING DOWN PROCESS IS UNAWARE OF THIS PROCESS SO IT WON'T WAIT FOR IT.
+			if coolingDown && time.Since(lastMessageReceived).Seconds() > 3 {
+				return
+			}
+
 		} // end select case
 	} // end for
 

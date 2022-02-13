@@ -1,9 +1,13 @@
 package initapp
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"brainyping/pkg/dbhelper"
@@ -16,11 +20,36 @@ import (
 
 var bootTime time.Time
 
+var buildDateUnix string = "0"
+var buildDate string
+var build string
+var version string = "developer"
+
 func InitApp() {
+	generateBuildInfo()
+	checkIfuserWantsJustToSeetheVersion()
 	bootTime = time.Now()
 	importDotEnv()
 	dbhelper.Connect(settings.GetSettStr(dbhelper.DBDBNAME), settings.GetSettStr(dbhelper.DBCONNSTRING))
 	importSettings()
+}
+
+func generateBuildInfo() {
+	var buildDateUnix64, err = strconv.ParseInt(buildDateUnix, 10, 64)
+	utilities.FailOnError(err)
+	buildDate = time.Unix(buildDateUnix64, 0).Format(time.RFC850)
+	hasher := md5.New()
+	hasher.Write([]byte(strconv.FormatInt(buildDateUnix64, 10)))
+	build = hex.EncodeToString(hasher.Sum(nil))[:7]
+}
+
+func checkIfuserWantsJustToSeetheVersion() {
+	var versionFlag = flag.Bool("version", false, "show version")
+	flag.Parse()
+	if *versionFlag {
+		printVersion()
+		os.Exit(1)
+	}
 }
 
 func GetBootTime() time.Time {
@@ -68,4 +97,12 @@ func GetSettings() ([]dbhelper.SettingType, error) {
 	} // end for loop
 
 	return results, nil
+}
+
+func printVersion() {
+	fmt.Printf("VERSION...... %s\n", version)
+	fmt.Printf("BUILD DATA... %s\n", buildDate)
+	fmt.Printf("BUILD UNIX... %s\n", buildDateUnix)
+	fmt.Printf("BUILD HASH... %s\n", build)
+
 }

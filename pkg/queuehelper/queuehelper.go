@@ -49,13 +49,9 @@ func InitQueue() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	// prefecth is the quantity of records fetched from the queue.... it is important that they are processed and acknowledged... because they can't go back!
-	// make sure that the number makes sense considering also the average number of go rountines workers and the buffered channel size...
-	// basically we don't want to fetch too many messages, it could be risky and we could lose requests if the server for any reason crashed
-	// on the other end we don't want that during the fetching of records the channel is starting to be empty and some workers have no work to do...
-	// so ideally (in my humble opinion) considerig various numbers that are only in my mind...
-	// PREFETCH = 2-3X the average speed
+
 	err = queueBrokerChannel.Qos(settings.GetSettInt(QUEUEPREFETCHCOUNT), 0, false)
+
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -63,4 +59,8 @@ func InitQueue() {
 
 func GetQueueBrokerChannel() *amqp.Channel {
 	return queueBrokerChannel
+}
+
+func GetQueueBrokerConnection() *amqp.Connection {
+	return queueBrokerConnection
 }
