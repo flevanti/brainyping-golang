@@ -22,15 +22,11 @@ func ProcessCheckFromQueue(check *queuehelper.CheckRecordQueued) error {
 	default:
 	}
 
-	if err != nil {
-		return err
-	}
-
 	checkResponse.CreatedUnix = time.Now().Unix()
 	checkResponse.TimeSpent = time.Since(checkStart).Microseconds()
 	check.RecordOutcome = checkResponse
 
-	return nil
+	return err
 }
 
 func ProcessHTTPCheckFromCli(subType string, url string, userAgent string) (dbhelper.CheckOutcomeRecord, error) {

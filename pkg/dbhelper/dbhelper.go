@@ -2,6 +2,7 @@ package dbhelper
 
 import (
 	"context"
+	"time"
 
 	"brainyping/pkg/utilities"
 
@@ -12,7 +13,6 @@ import (
 )
 
 var client *mongo.Client
-var ctx context.Context
 var Initialised bool
 
 type CheckRecord struct {
@@ -95,16 +95,61 @@ const DBCONNSTRING = "DBCONNSTRING"
 
 var mainDatabase string
 
+// GetDefaultIndexModelsByCollectionName returns the list of indexes that should be present in the collection. Used for rebuilding purposes.
+func GetDefaultIndexModelsByCollectionName(c string) []mongo.IndexModel {
+	var idxs []mongo.IndexModel
+
+	switch c {
+
+	case TablenameSettings:
+		idxUnique := true
+		idxs = []mongo.IndexModel{{Keys: bson.D{{"key", 1}}, Options: &options.IndexOptions{Unique: &idxUnique}}}
+		break
+	case TablenameResponse:
+		idxUnique := true
+		idxs = []mongo.IndexModel{
+			{Keys: bson.D{{"checkid", 1}, {"processedunix", -1}}},
+			{Keys: bson.D{{"requestid", 1}}, Options: &options.IndexOptions{Unique: &idxUnique}},
+			{Keys: bson.D{{"receivedresponseunix", 1}}},
+		}
+		break
+	case TablenameChecksInFlight:
+		idxUnique := true
+		idxName := "uk_rid"
+		idxs = []mongo.IndexModel{
+			{Keys: bson.D{{"rid", 1}}, Options: &options.IndexOptions{Unique: &idxUnique, Name: &idxName}},
+			{Keys: bson.D{{"checkid", 1}}},
+		}
+		break
+	case TablenameChecks:
+		idxUnique := true
+		idxs = []mongo.IndexModel{
+			{Keys: bson.D{{"owneruid", 1}}},
+			{Keys: bson.D{{"checkid", 1}}, Options: &options.IndexOptions{Unique: &idxUnique}},
+		}
+		break
+	case TablenameChecksStatus:
+		idxUnique := true
+		idxName := "uk_checkid"
+		idxs = []mongo.IndexModel{
+			{Keys: bson.D{{"checkid", 1}}, Options: &options.IndexOptions{Unique: &idxUnique, Name: &idxName}},
+			{Keys: bson.D{{"owneruid", 1}}}}
+		break
+	}
+
+	return idxs
+}
+
 func GetDatabaseName() string {
 	return mainDatabase
 }
 
-func DeleteTable(dbClient *mongo.Client, dbName string, tableName string) error {
-	return dbClient.Database(dbName).Collection(tableName).Drop(ctx)
+func DeleteCollection(dbClient *mongo.Client, dbName string, tableName string) error {
+	return dbClient.Database(dbName).Collection(tableName).Drop(context.Background())
 }
 
-func CreateTable(dbClient *mongo.Client, dbName string, tableName string, opts *options.CreateCollectionOptions) error {
-	return dbClient.Database(dbName).CreateCollection(ctx, tableName, opts)
+func CreateCollection(dbClient *mongo.Client, dbName string, collectionName string, opts *options.CreateCollectionOptions) error {
+	return dbClient.Database(dbName).CreateCollection(context.Background(), collectionName, opts)
 }
 
 func CreateIndexes(dbClient *mongo.Client, dbName string, tableName string, indexModels []mongo.IndexModel) error {
@@ -112,8 +157,8 @@ func CreateIndexes(dbClient *mongo.Client, dbName string, tableName string, inde
 	return err
 }
 
-func CheckIfTableExists(dbClient *mongo.Client, dbName string, tableName string) bool {
-	for _, v := range TablesList(dbClient, dbName) {
+func CheckIfCollectionExists(dbClient *mongo.Client, dbName string, tableName string) bool {
+	for _, v := range CollectionsList(dbClient, dbName) {
 		if tableName == v {
 			return true
 		}
@@ -121,10 +166,33 @@ func CheckIfTableExists(dbClient *mongo.Client, dbName string, tableName string)
 	return false
 }
 
-func TablesList(dbClient *mongo.Client, dbName string) []string {
-	list, err := dbClient.Database(dbName).ListCollectionNames(ctx, bson.M{})
+func CollectionsList(dbClient *mongo.Client, dbName string) []string {
+	list, err := dbClient.Database(dbName).ListCollectionNames(context.Background(), bson.M{})
 	utilities.FailOnError(err)
 	return list
+}
+
+// TruncateCollection delete and recreate a collection and rebuild the indexes. Indexes are retrieved from a list, all other indexes present in the collection not in the list will be lost
+func TruncateCollection(dbClient *mongo.Client, dbName string, collectionName string) error {
+	// todo add logic or new function to truncate a collection and maintain the current indexes in the db, not the one configured in the code.(a real truncate)
+	err := DeleteCollection(dbClient, dbName, collectionName)
+	if err != nil {
+		return err
+	}
+
+	err = CreateCollection(dbClient, dbName, collectionName, &options.CreateCollectionOptions{})
+	if err != nil {
+		return err
+	}
+
+	indexModels := GetDefaultIndexModelsByCollectionName(collectionName)
+	if len(indexModels) > 0 {
+		err = CreateIndexes(dbClient, dbName, collectionName, indexModels)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func Connect(mainDatabaseLocal string, connString string) {
@@ -133,22 +201,21 @@ func Connect(mainDatabaseLocal string, connString string) {
 	}
 	mainDatabase = mainDatabaseLocal // database is not used in the connection string but stored for later use....
 	var err error
-
-	ctx = context.Background()
+	ctxwt, cancCtxwt := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancCtxwt()
 	clientOptions := options.Client().ApplyURI(connString)
-
-	client, err = mongo.Connect(context.Background(), clientOptions)
+	client, err = mongo.Connect(ctxwt, clientOptions)
 	if err != nil {
 		utilities.FailOnError(err)
 	}
-	if err := client.Ping(ctx, readpref.Primary()); err != nil {
-		panic(err)
+	if err := client.Ping(ctxwt, readpref.Primary()); err != nil {
+		utilities.FailOnError(err)
 	}
 
 }
 
 func Disconnect() {
-	if err := client.Disconnect(ctx); err != nil {
+	if err := client.Disconnect(context.Background()); err != nil {
 		panic(err)
 	}
 }
@@ -156,7 +223,7 @@ func Disconnect() {
 func SaveManyRecords(db string, collection string, records *[]interface{}) error {
 	coll := GetClient().Database(db).Collection(collection)
 
-	_, err := coll.InsertMany(ctx, *records)
+	_, err := coll.InsertMany(context.Background(), *records)
 
 	if err != nil {
 		return err
@@ -167,7 +234,7 @@ func SaveManyRecords(db string, collection string, records *[]interface{}) error
 func SaveRecord(db string, collection string, document interface{}) error {
 	coll := GetClient().Database(db).Collection(collection)
 
-	_, err := coll.InsertOne(ctx, document)
+	_, err := coll.InsertOne(context.Background(), document)
 
 	if err != nil {
 		return err
@@ -176,7 +243,7 @@ func SaveRecord(db string, collection string, document interface{}) error {
 }
 
 func DeleteRecordsByFieldValue(db string, collection string, field string, value interface{}) (*mongo.DeleteResult, error) {
-	return GetClient().Database(db).Collection(collection).DeleteOne(context.TODO(), bson.M{field: value})
+	return GetClient().Database(db).Collection(collection).DeleteMany(context.TODO(), bson.M{field: value})
 }
 
 func GetClient() *mongo.Client {

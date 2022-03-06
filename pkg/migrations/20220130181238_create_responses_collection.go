@@ -12,7 +12,7 @@ import (
 )
 
 func up_20220130181238(db *mongo.Client) error {
-	if dbhelper.CheckIfTableExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
+	if dbhelper.CheckIfCollectionExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
 		return nil
 	}
 
@@ -38,7 +38,7 @@ func up_20220130181238(db *mongo.Client) error {
 }
 
 func down_20220130181238(db *mongo.Client) error {
-	if !dbhelper.CheckIfTableExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
+	if !dbhelper.CheckIfCollectionExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
 		return nil
 	}
 	err := db.Database(dbhelper.GetDatabaseName()).Collection(dbhelper.TablenameResponse).Drop(context.TODO())

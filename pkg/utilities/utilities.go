@@ -129,6 +129,14 @@ func PrintTable(headers []string, data [][]string) {
 	table.Render()
 }
 
+func PrintTableOneColumn(headers string, data []string) {
+	var dataProcessed [][]string
+	for _, v := range data {
+		dataProcessed = append(dataProcessed, []string{v})
+	}
+	PrintTable([]string{headers}, dataProcessed)
+}
+
 func ClearScreen() {
 	fmt.Print("\033[H\033[2J") // clear the screen...
 }
@@ -159,4 +167,39 @@ func ReadUserInput(textToShow string) string {
 	FailOnError(err)
 
 	return strings.Trim(text, " \n\t")
+}
+
+func ReadUserInputWithOptions(textToShow string, options []string, backCommand string) string {
+	reader := bufio.NewReader(os.Stdin)
+	backCommandText := ""
+	backCommand = strings.Trim(backCommand, " ")
+	if backCommand != "" {
+		backCommandText = fmt.Sprintf("[`%s` to go back] ", backCommand)
+	}
+	for {
+		fmt.Printf("%s %s>  ", textToShow, backCommandText)
+		text, err := reader.ReadString('\n')
+		FailOnError(err)
+		text = strings.Trim(text, " \n\t")
+		for _, v := range options {
+			if text == v {
+				return text
+			}
+		}
+		if backCommand != "" && text == backCommand {
+			return backCommand
+		}
+	}
+}
+
+func ReadUserInputConfirm(text string) bool {
+	for {
+		r := ReadUserInput(text)
+		switch r {
+		case "y", "Y", "yes", "YES", "Yes":
+			return true
+		case "n", "N", "no", "NO", "No":
+			return false
+		}
+	}
 }

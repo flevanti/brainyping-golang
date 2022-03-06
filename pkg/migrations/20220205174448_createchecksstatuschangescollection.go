@@ -22,12 +22,12 @@ import (
 //
 
 func up_20220205174448(db *mongo.Client) error {
-	if dbhelper.CheckIfTableExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameChecksStatusChanges) {
+	if dbhelper.CheckIfCollectionExists(db, dbhelper.GetDatabaseName(), dbhelper.TablenameChecksStatusChanges) {
 		return nil
 	}
 
 	opts := options.CreateCollectionOptions{}
-	err := dbhelper.CreateTable(db, dbhelper.GetDatabaseName(), dbhelper.TablenameChecksStatusChanges, &opts)
+	err := dbhelper.CreateCollection(db, dbhelper.GetDatabaseName(), dbhelper.TablenameChecksStatusChanges, &opts)
 	if err != nil {
 		return err
 	}

@@ -62,9 +62,9 @@ func main() {
 	dbhelper.Connect(settings.GetSettStr(dbhelper.DBDBNAME), settings.GetSettStr(dbhelper.DBCONNSTRING))
 	defer dbhelper.Disconnect()
 
-	if !dbhelper.CheckIfTableExists(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
+	if !dbhelper.CheckIfCollectionExists(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse) {
 		opts := options.CreateCollectionOptions{}
-		utilities.FailOnError(dbhelper.CreateTable(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &opts))
+		utilities.FailOnError(dbhelper.CreateCollection(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, &opts))
 	}
 
 	// waiting for the world to end - instructions to run before closing...

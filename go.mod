@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/beevik/ntp v0.3.0
-	github.com/flevanti/bisonmigration v0.1.0
+	github.com/flevanti/bisonmigration v0.1.2
 	github.com/go-co-op/gocron v1.11.0
 	github.com/google/uuid v1.3.0
 	github.com/joho/godotenv v1.4.0

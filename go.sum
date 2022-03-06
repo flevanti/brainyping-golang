@@ -3,8 +3,8 @@ github.com/beevik/ntp v0.3.0/go.mod h1:hIHWr+l3+/clUnF44zdK+CWW7fO8dR5cIylAQ76NR
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/flevanti/bisonmigration v0.1.0 h1:RvtfEv+P3I4SNcY+ON9XamhG/ODUQXY4IXQGQbNPO9o=
-github.com/flevanti/bisonmigration v0.1.0/go.mod h1:lf3dT50GNgNVJ8NNPil+cNHiQPFm1kAv76tATq5x7E8=
+github.com/flevanti/bisonmigration v0.1.2 h1:iD0FChgfZtzmp14L5sd5jRa2f7aaQUNM9djZ4GZYDxM=
+github.com/flevanti/bisonmigration v0.1.2/go.mod h1:lf3dT50GNgNVJ8NNPil+cNHiQPFm1kAv76tATq5x7E8=
 github.com/go-co-op/gocron v1.11.0 h1:ujOMubCpGcTxnnR/9vJIPIEpgwuAjbueAYqJRNr+nHg=
 github.com/go-co-op/gocron v1.11.0/go.mod h1:qtlsoMpHlSdIZ3E/xuZzrrAbeX3u5JtPvWf2TcdutU0=
 github.com/go-stack/stack v1.8.0 h1:5SgMzNM5HxrEjV0ww2lTmX6E2Izsfxas4+YHWRs3Lsk=
