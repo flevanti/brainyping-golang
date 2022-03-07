@@ -64,3 +64,8 @@ func GetQueueBrokerChannel() *amqp.Channel {
 func GetQueueBrokerConnection() *amqp.Connection {
 	return queueBrokerConnection
 }
+
+func CloseQueue() {
+	_ = queueBrokerChannel.Close()
+	_ = queueBrokerConnection.Close()
+}

@@ -154,6 +154,9 @@ func waitingForTheWorldToEnd(ctx context.Context) {
 	// also the workers should have noticed it but we need to be sure to clear the channel before continuing...
 	allWorkersGracefullyEnded()
 
+	// Closing the queue
+	queuehelper.CloseQueue()
+
 	// this is it, it has been fun!
 	os.Exit(0)
 
@@ -247,8 +250,7 @@ func allWorkersReady() {
 
 // we could have used a waitgroup....!!
 func allWorkersGracefullyEnded() bool {
-	var stopped int = 0
-
+	var stopped int
 	// infinite loooooop
 	for {
 		stopped = 0
