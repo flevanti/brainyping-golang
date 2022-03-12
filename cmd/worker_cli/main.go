@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("WORKERCLI")
 	subType := utilities.ReadUserInput("CHECK SUB TYPE? (leave blank for GET) ")
 	if subType == "" {
 		subType = "GET"

@@ -23,6 +23,8 @@ type CheckRecordQueued struct {
 	ScheduledUnix             int64                       `bson:"scheduledunix"`
 	QueuedUnix                int64                       `bson:"queuedunix"`
 	ReceivedByWorkerUnix      int64                       `bson:"receivedyworkerunix"`
+	WorkerHostname            string                      `bson:"workerhostname"`
+	WorkerHostnameFriendly    string                      `bson:"workerhostnamefriendly"`
 	QueuedReturnUnix          int64                       `bson:"queuedreturnunix"`
 	ReceivedByResponseHandler int64                       `bson:"receivedbyresponsehandler"`
 	ErrorFatal                string                      `bson:"errorfatal"`

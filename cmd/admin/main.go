@@ -15,7 +15,7 @@ import (
 const GOBACK string = ".."
 
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("ADMIN")
 	mainMenu()
 }
 
@@ -83,10 +83,6 @@ func createCollectionMenu() {
 	}
 
 	utilities.FailOnError(dbhelper.CreateCollection(dbhelper.GetClient(), dbhelper.GetDatabaseName(), collection, &options.CreateCollectionOptions{}))
-
-	// very dirty trick to make sure that if we create a collection that should have indexes we do create them - basically running the truncate method
-	// todo create logic to check if collection needs indexes independently
-	utilities.FailOnError(dbhelper.TruncateCollection(dbhelper.GetClient(), dbhelper.GetDatabaseName(), collection))
 
 }
 

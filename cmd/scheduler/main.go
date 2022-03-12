@@ -8,8 +8,11 @@ import (
 	"time"
 
 	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/heartbeat"
 	"brainyping/pkg/initapp"
+	"brainyping/pkg/internalstatusmonitorapi"
 	"brainyping/pkg/queuehelper"
+	"brainyping/pkg/settings"
 	_ "brainyping/pkg/settings"
 	"brainyping/pkg/utilities"
 
@@ -22,9 +25,18 @@ var jobsQueuedSinceBoot int64
 var jobsNotQueuedBecausePaused int64
 var schedulerPaused bool // this is not interacting with the scheduler directly but preventing it to push new cheduled jobs in the queue to be processed
 
+const SCHAPIPORT = "SCH_API_PORT"
+
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("SCHEDULER")
 	queuehelper.InitQueue()
+
+	// start the listener for internal status monitoring
+	internalstatusmonitorapi.StartListener(settings.GetSettStr(SCHAPIPORT), initapp.GetAppRole())
+
+	// start the beating..
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*15, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+
 	fmt.Println("SCHEDULER")
 	fmt.Printf("Boot time is %s\n", initapp.GetBootTime().Format(time.Stamp))
 

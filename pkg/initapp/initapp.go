@@ -24,8 +24,11 @@ var buildDateUnix string = "0"
 var buildDate string
 var build string
 var version string = "developer"
+var gitHash string = "########"
+var appRole string
 
-func InitApp() {
+func InitApp(appRoleParam string) {
+	appRole = appRoleParam
 	generateBuildInfo()
 	checkIfuserWantsJustToSeetheVersion()
 	bootTime = time.Now()
@@ -56,11 +59,18 @@ func GetBootTime() time.Time {
 	return bootTime
 }
 
+func GetAppRole() string {
+	return appRole
+}
+
 func importDotEnv() {
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatalln("Error loading .env file", err.Error())
 	}
+}
+func RetrieveHostNameFriendly() string {
+	return settings.GetSettStr("HOSTFRIENDLY")
 }
 
 func importSettings() {
@@ -104,5 +114,6 @@ func printVersion() {
 	fmt.Printf("BUILD DATA... %s\n", buildDate)
 	fmt.Printf("BUILD UNIX... %s\n", buildDateUnix)
 	fmt.Printf("BUILD HASH... %s\n", build)
+	fmt.Printf("GIT HASH..... %s", gitHash)
 
 }

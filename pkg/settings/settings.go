@@ -9,6 +9,8 @@ import (
 
 	"brainyping/pkg/dbhelper"
 	"brainyping/pkg/utilities"
+
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetSettStr(key string) string {
@@ -72,8 +74,12 @@ func SettExists(key string) bool {
 }
 
 func SaveNewSett(record dbhelper.SettingType) {
-	err := dbhelper.SaveRecord(dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, record)
+	err := dbhelper.SaveRecord(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, record, &options.InsertOneOptions{})
 	utilities.FailOnError(err)
+}
+
+func SaveNewSettFriendly(key string, value string, description string) {
+	SaveNewSett(dbhelper.SettingType{Key: key, Value: value, Description: description})
 }
 
 func DeleteSettingByKey(key string) {

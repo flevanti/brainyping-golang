@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/heartbeat"
 	"brainyping/pkg/initapp"
+	"brainyping/pkg/internalstatusmonitorapi"
 	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/settings"
 	_ "brainyping/pkg/settings"
@@ -32,7 +34,7 @@ type metadataType struct {
 var endOfTheWorld bool
 var metadata metadataType
 var saveBuffer []interface{}
-var RequestIdsToRemoveFromInFlight bson.A
+var RequestIdsToRemoveFromInFlight = bson.A{}
 
 const QUEUECONSUMERNAME = "response_collector"
 
@@ -40,10 +42,17 @@ const RCGRACEPERIODMS = "RC_GRACE_PERIOD_MS"
 const RCBULKSAVESIZE = "RC_BULK_SAVE_SIZE"
 const RCSAVEAUTOFLUSHMS = "RC_SAVE_AUTO_FLUSH_MS"
 const RCBUFCHSIZE = "RC_BUF_CH_SIZE"
+const RCAPIPORT = "RC_API_PORT"
 
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("RESPONSESCOLLECTOR")
 	queuehelper.InitQueue()
+
+	// start the listener for internal status monitoring
+	internalstatusmonitorapi.StartListener(settings.GetSettStr(RCAPIPORT), initapp.GetAppRole())
+
+	// start the beating..
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
 
 	// create the context
 	ctx, cfunc := context.WithCancel(context.Background())
@@ -173,6 +182,9 @@ func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.Check
 	response.RedirectsHistory = record.RecordOutcome.RedirectsHistory
 	response.CreatedUnix = time.Now().Unix()
 	response.RequestId = record.RequestId
+	response.WorkerHostname = record.WorkerHostname
+	response.WorkerHostnameFriendly = record.WorkerHostnameFriendly
+	
 	return response
 
 }

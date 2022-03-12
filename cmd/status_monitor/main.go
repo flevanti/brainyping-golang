@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/heartbeat"
 	"brainyping/pkg/initapp"
+	"brainyping/pkg/internalstatusmonitorapi"
 	"brainyping/pkg/settings"
 	"brainyping/pkg/utilities"
 )
@@ -51,13 +53,20 @@ const BULKSAVESIZE = 1000
 const markerSourceResponses = "RESPONSES"
 const markerSourceStatusChanges = "STATUSCHANGES"
 const STMSAVEAUTOFLUSHMS = "STM_SAVE_AUTO_FLUSH_MS"
+const STMAPIPORT = "STM_API_PORT"
 
 func main() {
 	var chReadResponses = make(chan dbhelper.CheckResponseRecordDb, 100)
 	var chWriteStatusChanges = make(chan string, 100)
 	var chWriteStatusCurrent = make(chan string, 100)
 
-	initapp.InitApp()
+	initapp.InitApp("STATUSMONITOR")
+
+	// start the listener for internal status monitoring
+	internalstatusmonitorapi.StartListener(settings.GetSettStr(STMAPIPORT), initapp.GetAppRole())
+
+	// start the beating..
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
 
 	// create the context
 	ctx, cfunc = context.WithCancel(context.Background())

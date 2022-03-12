@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/heartbeat"
 	"brainyping/pkg/initapp"
+	"brainyping/pkg/internalstatusmonitorapi"
 	"brainyping/pkg/settings"
+	"brainyping/pkg/utilities"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -24,9 +27,17 @@ var totRecordsRemovedGlobal int64
 const RRDAYS string = "RR_DAYS"
 const RRFREQUENCYSEC string = "RR_FREQUENCY_SEC"
 const RRBATCHSIZE string = "RR_BATCH_SIZE"
+const RRAPIPORT = "RR_API_PORT"
 
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("RESPONSERETENTION")
+
+	// start the listener for internal status monitoring
+	internalstatusmonitorapi.StartListener(settings.GetSettStr(RRAPIPORT), initapp.GetAppRole())
+
+	// start the beating..
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+
 	retentionDays = settings.GetSettInt64(RRDAYS)
 	retentionSeconds = retentionDays * 24 * 60 * 60
 	frequencySeconds = settings.GetSettInt64(RRFREQUENCYSEC)
@@ -88,7 +99,7 @@ func clean() {
 			return
 		}
 
-		log.Printf("Identified record [%s] with [receivedresponseunix] field value [%d] converted to [%s]\n", record.MongoDbId, record.ReceivedResponseUnix, time.Unix(record.ReceivedResponseUnix, 0).Format(time.RFC850))
+		log.Printf("Identified record [%s] to use as a marker: [receivedresponseunix] field value [%d] converted to [%s]\n", record.MongoDbId, record.ReceivedResponseUnix, time.Unix(record.ReceivedResponseUnix, 0).Format(time.RFC850))
 
 		delRes, err := dbhelper.DeleteRecordsByFieldValue(dbhelper.GetDatabaseName(), dbhelper.TablenameResponse, "receivedresponseunix", bson.M{"$lte": record.ReceivedResponseUnix})
 		if err != nil {

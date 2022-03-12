@@ -30,7 +30,7 @@ func GetDatabaseName() string {
 }
 
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("MIGRATION")
 	bisonmigration.MigrationEngineInitialise(GetDatabaseName(), collectionName, dbhelper.GetClient(), sequenceStrictnessFlags)
 	migrationsFolderExists = checkIfMigrationsFolderExists()
 

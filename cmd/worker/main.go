@@ -14,7 +14,10 @@ import (
 
 	"brainyping/pkg/checks"
 	"brainyping/pkg/checks/httpcheck"
+	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/heartbeat"
 	"brainyping/pkg/initapp"
+	"brainyping/pkg/internalstatusmonitorapi"
 	"brainyping/pkg/queuehelper"
 	"brainyping/pkg/settings"
 	_ "brainyping/pkg/settings"
@@ -44,6 +47,7 @@ type workersMetadataType struct {
 
 var workerIP string = utilities.RetrievePublicIP()
 var workerHostName string = utilities.RetrieveHostName()
+var workerHostNameFriendly string
 var endOfTheWorld bool
 var workersMetadata workersMetadataType
 var throttlerChannel chan int
@@ -68,10 +72,19 @@ const WORKERSUBREGION = "WORKER_SUBREGION"
 const WRKGOROUTINES = "WRK_GOROUTINES"
 const WRKHTTPUSERAGENT = "WRK_HTTP_USER_AGENT"
 const QUEUECONSUMERNAME = "worker"
+const WRKAPIPORT = "WRK_API_PORT"
 
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("WORKER")
 	queuehelper.InitQueue()
+	workerHostNameFriendly = initapp.RetrieveHostNameFriendly()
+
+	// start the listener for internal status monitoring
+	internalstatusmonitorapi.StartListener(settings.GetSettStr(WRKAPIPORT), initapp.GetAppRole())
+
+	// start the beating..
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION), time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+
 	printGreetings()
 	httpcheck.HttpCheckDefaultUserAgent = settings.GetSettStr(WRKHTTPUSERAGENT)
 
@@ -180,6 +193,8 @@ forloop:
 			utilities.FailOnError(err)
 
 			messageQueued.ReceivedByWorkerUnix = time.Now().Unix()
+			messageQueued.WorkerHostname = workerHostName
+			messageQueued.WorkerHostnameFriendly = workerHostNameFriendly
 
 			_ = check.Ack(false)
 			err = checks.ProcessCheckFromQueue(&messageQueued)

@@ -73,6 +73,6 @@ func saveRecordAsInFlight(record queuehelper.CheckRecordQueued) error {
 
 	var recToSaveI interface{} = recToSave
 
-	return dbhelper.SaveRecord(dbhelper.GetDatabaseName(), dbhelper.TablenameChecksInFlight, recToSaveI)
+	return dbhelper.SaveRecord(dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameChecksInFlight, recToSaveI, &options.InsertOneOptions{})
 
 }

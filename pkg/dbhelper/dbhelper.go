@@ -34,28 +34,30 @@ type CheckRecord struct {
 }
 
 type CheckResponseRecordDb struct {
-	MongoDbId            string            `bson:"_id,omitempty"`
-	CheckId              string            `bson:"checkid"`
-	Region               string            `bson:"region"`
-	ScheduledTimeUnix    int64             `bson:"scheduledtimeunix"`
-	ScheduledTimeDelay   int64             `bson:"scheduledtimedelay"`
-	QueuedRequestUnix    int64             `bson:"queuedrequestunix"`
-	ReceivedByWorkerUnix int64             `bson:"receivedbyworkerunix"`
-	ProcessedUnix        int64             `bson:"processedunix"`
-	TimeSpent            int64             `bson:"timespent"`
-	QueuedResponseUnix   int64             `bson:"queuedresponseunix"`
-	ReceivedResponseUnix int64             `bson:"receivedresponseunix"`
-	CreatedUnix          int64             `bson:"createdunix"`
-	OwnerUid             string            `bson:"owneruid"`
-	Success              bool              `bson:"success"`
-	ErrorOriginal        string            `bson:"errororiginal"`
-	ErrorFriendly        string            `bson:"errorfriendly "`
-	ErrorInternal        string            `bson:"errorinternal"`
-	ErrorFatal           string            `bson:"errorfatal"`
-	Message              string            `bson:"message"`
-	Redirects            int               `bson:"redirects"`
-	RedirectsHistory     []RedirectHistory `bson:"redirectshistory"`
-	RequestId            string            `bson:"requestid"`
+	MongoDbId              string            `bson:"_id,omitempty"`
+	CheckId                string            `bson:"checkid"`
+	Region                 string            `bson:"region"`
+	ScheduledTimeUnix      int64             `bson:"scheduledtimeunix"`
+	ScheduledTimeDelay     int64             `bson:"scheduledtimedelay"`
+	QueuedRequestUnix      int64             `bson:"queuedrequestunix"`
+	ReceivedByWorkerUnix   int64             `bson:"receivedbyworkerunix"`
+	ProcessedUnix          int64             `bson:"processedunix"`
+	TimeSpent              int64             `bson:"timespent"`
+	QueuedResponseUnix     int64             `bson:"queuedresponseunix"`
+	ReceivedResponseUnix   int64             `bson:"receivedresponseunix"`
+	CreatedUnix            int64             `bson:"createdunix"`
+	OwnerUid               string            `bson:"owneruid"`
+	Success                bool              `bson:"success"`
+	ErrorOriginal          string            `bson:"errororiginal"`
+	ErrorFriendly          string            `bson:"errorfriendly "`
+	ErrorInternal          string            `bson:"errorinternal"`
+	ErrorFatal             string            `bson:"errorfatal"`
+	Message                string            `bson:"message"`
+	Redirects              int               `bson:"redirects"`
+	RedirectsHistory       []RedirectHistory `bson:"redirectshistory"`
+	RequestId              string            `bson:"requestid"`
+	WorkerHostname         string            `bson:"workerhostname"`
+	WorkerHostnameFriendly string            `bson:"workerhostnamefriendly"`
 }
 
 type CheckOutcomeRecord struct {
@@ -89,6 +91,7 @@ const TablenameSettings = "settings"
 const TablenameChecksStatus = "checks_status"
 const TablenameChecksStatusChanges = "checks_status_changes"
 const TablenameChecksInFlight = "checks_inflight"
+const TablenameHeartbeats = "heartbeats"
 
 const DBDBNAME = "DBDBNAME"
 const DBCONNSTRING = "DBCONNSTRING"
@@ -135,6 +138,13 @@ func GetDefaultIndexModelsByCollectionName(c string) []mongo.IndexModel {
 			{Keys: bson.D{{"checkid", 1}}, Options: &options.IndexOptions{Unique: &idxUnique, Name: &idxName}},
 			{Keys: bson.D{{"owneruid", 1}}}}
 		break
+	case TablenameHeartbeats:
+		idxUnique := true
+		idxs = []mongo.IndexModel{
+			{Keys: bson.D{{"hostname", 1}, {"approle", 1}}, Options: &options.IndexOptions{Unique: &idxUnique}},
+			{Keys: bson.D{{"lasthb", 1}}},
+		}
+
 	}
 
 	return idxs
@@ -149,7 +159,19 @@ func DeleteCollection(dbClient *mongo.Client, dbName string, tableName string) e
 }
 
 func CreateCollection(dbClient *mongo.Client, dbName string, collectionName string, opts *options.CreateCollectionOptions) error {
-	return dbClient.Database(dbName).CreateCollection(context.Background(), collectionName, opts)
+	err := dbClient.Database(dbName).CreateCollection(context.Background(), collectionName, opts)
+	if err != nil {
+		return err
+	}
+
+	indexModels := GetDefaultIndexModelsByCollectionName(collectionName)
+	if len(indexModels) > 0 {
+		err = CreateIndexes(dbClient, dbName, collectionName, indexModels)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func CreateIndexes(dbClient *mongo.Client, dbName string, tableName string, indexModels []mongo.IndexModel) error {
@@ -231,10 +253,21 @@ func SaveManyRecords(db string, collection string, records *[]interface{}) error
 	return nil
 }
 
-func SaveRecord(db string, collection string, document interface{}) error {
-	coll := GetClient().Database(db).Collection(collection)
+func SaveRecord(dbClient *mongo.Client, db string, collection string, document interface{}, options *options.InsertOneOptions) error {
+	coll := dbClient.Database(db).Collection(collection)
 
-	_, err := coll.InsertOne(context.Background(), document)
+	_, err := coll.InsertOne(context.Background(), document, options)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UpdateRecord(dbClient *mongo.Client, db string, collection string, filter interface{}, document interface{}, options *options.UpdateOptions) error {
+	coll := dbClient.Database(db).Collection(collection)
+
+	_, err := coll.UpdateOne(context.Background(), filter, document, options)
 
 	if err != nil {
 		return err

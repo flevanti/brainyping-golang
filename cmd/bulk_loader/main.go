@@ -22,7 +22,7 @@ const BLRPSSPREAD = "BL_RPS_SPREAD"
 const BLBULKSAVESIZE = "BL_BULK_SAVE_SIZE"
 
 func main() {
-	initapp.InitApp()
+	initapp.InitApp("BULKLOADER")
 	timeStart := time.Now()
 	fmt.Println("Process started at ", timeStart.Format(time.ANSIC))
 	fmt.Println("Current memory usage: ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
