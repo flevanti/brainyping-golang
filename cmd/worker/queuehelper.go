@@ -20,7 +20,7 @@ func PublishResponseForCheckProcessed(body []byte) error {
 }
 
 func ConsumeQueueForPendingChecks(ctx context.Context, ch chan<- amqp.Delivery) {
-	msgs, err := queuehelper.GetQueueBrokerChannel().Consume(settings.GetSettStr(queuehelper.QUEUENAMEREQUEST),
+	msgs, err := queuehelper.GetQueueBrokerChannel().Consume(queuehelper.BuildRequestsQueueName(settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION)),
 		QUEUECONSUMERNAME,
 		false,
 		false,

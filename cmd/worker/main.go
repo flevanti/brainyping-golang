@@ -76,14 +76,19 @@ const WRKAPIPORT = "WRK_API_PORT"
 
 func main() {
 	initapp.InitApp("WORKER")
-	queuehelper.InitQueue()
+
+	// check if region/subregion are valid
+	utilities.FailOnError(checkRegionIsValid())
+
+	queuehelper.InitQueueWorker(settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION))
+
 	workerHostNameFriendly = initapp.RetrieveHostNameFriendly()
 
 	// start the listener for internal status monitoring
 	internalstatusmonitorapi.StartListener(settings.GetSettStr(WRKAPIPORT), initapp.GetAppRole())
 
 	// start the beating..
-	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION), time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION), time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats, settings.GetSettStr(WRKAPIPORT), workerIP).Start()
 
 	printGreetings()
 	httpcheck.HttpCheckDefaultUserAgent = settings.GetSettStr(WRKHTTPUSERAGENT)
@@ -117,6 +122,27 @@ func main() {
 
 	userInput()
 
+}
+
+func checkRegionIsValid() error {
+	region := settings.GetSettStr(WORKERREGION)
+	subRegion := settings.GetSettStr(WORKERSUBREGION)
+	regions, err := settings.GetRegionsList()
+	if err != nil {
+		return err
+	}
+	// look for the region and if found look for the subregion...
+	for _, r := range regions {
+		if r.Id == region {
+			for _, sr := range r.SubRegions {
+				if sr.Id == subRegion {
+					return nil // region/subregion are valid!
+				}
+			}
+			return errors.New(fmt.Sprintf("sub region configured [%s] not valid", subRegion))
+		}
+	}
+	return errors.New(fmt.Sprintf("region configured [%s] not valid", region))
 }
 
 // above a certain limit it is probably better to multiply by [n] the sleep and multiply by [n] the elements pushed in the channel
@@ -203,6 +229,7 @@ forloop:
 			}
 			messageQueued.QueuedReturnUnix = time.Now().Unix()
 			messageQueued.RecordOutcome.Region = settings.GetSettStr(WORKERREGION)
+			messageQueued.RecordOutcome.SubRegion = settings.GetSettStr(WORKERSUBREGION)
 
 			jsonRecord, _ := json.Marshal(messageQueued)
 			err = PublishResponseForCheckProcessed(jsonRecord)

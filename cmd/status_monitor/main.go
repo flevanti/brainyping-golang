@@ -66,7 +66,7 @@ func main() {
 	internalstatusmonitorapi.StartListener(settings.GetSettStr(STMAPIPORT), initapp.GetAppRole())
 
 	// start the beating..
-	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats, settings.GetSettStr(STMAPIPORT), utilities.RetrievePublicIP()).Start()
 
 	// create the context
 	ctx, cfunc = context.WithCancel(context.Background())

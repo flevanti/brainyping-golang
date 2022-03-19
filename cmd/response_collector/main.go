@@ -46,13 +46,13 @@ const RCAPIPORT = "RC_API_PORT"
 
 func main() {
 	initapp.InitApp("RESPONSESCOLLECTOR")
-	queuehelper.InitQueue()
+	queuehelper.InitQueueResponseCollector()
 
 	// start the listener for internal status monitoring
 	internalstatusmonitorapi.StartListener(settings.GetSettStr(RCAPIPORT), initapp.GetAppRole())
 
 	// start the beating..
-	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats, settings.GetSettStr(RCAPIPORT), utilities.RetrievePublicIP()).Start()
 
 	// create the context
 	ctx, cfunc := context.WithCancel(context.Background())
@@ -167,6 +167,7 @@ func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.Check
 	response.ProcessedUnix = record.RecordOutcome.CreatedUnix
 	response.ScheduledTimeDelay = record.RecordOutcome.CreatedUnix - record.ScheduledUnix
 	response.Region = record.RecordOutcome.Region
+	response.SubRegion = record.RecordOutcome.SubRegion
 	response.QueuedRequestUnix = record.QueuedUnix
 	response.ReceivedByWorkerUnix = record.ReceivedByWorkerUnix
 	response.QueuedResponseUnix = record.QueuedReturnUnix
@@ -184,7 +185,7 @@ func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.Check
 	response.RequestId = record.RequestId
 	response.WorkerHostname = record.WorkerHostname
 	response.WorkerHostnameFriendly = record.WorkerHostnameFriendly
-	
+
 	return response
 
 }

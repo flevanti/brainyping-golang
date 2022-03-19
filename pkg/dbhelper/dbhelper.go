@@ -16,27 +16,32 @@ var client *mongo.Client
 var Initialised bool
 
 type CheckRecord struct {
-	CheckId            string   `bson:"checkid"`
-	Name               string   `bson:"name"`
-	Host               string   `bson:"host"`
-	Port               int      `bson:"port"`
-	Type               string   `bson:"type"`
-	SubType            string   `bson:"subtype"`
-	Frequency          int      `bson:"frequency"`
-	UserAgent          string   `bson:"useragent"`
-	Regions            []string `bson:"regions"`
-	RegionsEachTime    int      `bson:"regionseachtime"`
-	Enabled            bool     `bson:"enabled"`
-	CreatedUnix        int64    `bson:"createdunix"`
-	UpdatedUnix        int64    `bson:"updatedunix"`
-	StartSchedTimeUnix int64    `bson:"startschedtimeunix"`
-	OwnerUid           string   `bson:"owneruid"`
+	CheckId            string     `bson:"checkid"`
+	Name               string     `bson:"name"`
+	NameFriendly       string     `bson:"namefriendly"`
+	Host               string     `bson:"host"`
+	Port               int        `bson:"port"`
+	Type               string     `bson:"type"`
+	SubType            string     `bson:"subtype"`
+	Frequency          int        `bson:"frequency"`
+	UserAgent          string     `bson:"useragent"`
+	HttpHeaders        [][]string `bson:"httpheaders"`
+	HttpBody           string     `bson:"httpbody"`
+	HttpStatusCodeOK   int        `bson:"httpstatuscodeok"`
+	ResponseString     string     `bson:"responsestring"`
+	Regions            [][]string `bson:"regions"`
+	Enabled            bool       `bson:"enabled"`
+	CreatedUnix        int64      `bson:"createdunix"`
+	UpdatedUnix        int64      `bson:"updatedunix"`
+	StartSchedTimeUnix int64      `bson:"startschedtimeunix"`
+	OwnerUid           string     `bson:"owneruid"`
 }
 
 type CheckResponseRecordDb struct {
 	MongoDbId              string            `bson:"_id,omitempty"`
 	CheckId                string            `bson:"checkid"`
 	Region                 string            `bson:"region"`
+	SubRegion              string            `bson:"subregion"`
 	ScheduledTimeUnix      int64             `bson:"scheduledtimeunix"`
 	ScheduledTimeDelay     int64             `bson:"scheduledtimedelay"`
 	QueuedRequestUnix      int64             `bson:"queuedrequestunix"`
@@ -71,6 +76,7 @@ type CheckOutcomeRecord struct {
 	RedirectsHistory []RedirectHistory `bson:"redirectshistory"`
 	CreatedUnix      int64             `bson:"createdunix"`
 	Region           string            `bson:"region"`
+	SubRegion        string            `bson:"subregion"`
 }
 
 type RedirectHistory struct {
@@ -85,6 +91,22 @@ type SettingType struct {
 	Description string `bson:"description"`
 }
 
+type RegionType struct {
+	Id         string          `bson:"id" json:"id"`
+	Name       string          `bson:"name" json:"name"`
+	Flag       string          `bson:"flag" json:"flag"`
+	Enabled    bool            `bson:"enabled" json:"enabled"`
+	Continent  string          `bson:"continent" json:"continent"`
+	SubRegions []SubRegionType `bson:"subregions" json:"subregions"`
+}
+
+type SubRegionType struct {
+	Id       string `bson:"id" json:"id"`
+	Name     string `bson:"name" json:"name"`
+	Provider string `bson:"provider" json:"provider"`
+	Enabled  bool   `bson:"enabled" json:"enabled"`
+}
+
 const TablenameChecks = "checks"
 const TablenameResponse = "responses"
 const TablenameSettings = "settings"
@@ -95,6 +117,8 @@ const TablenameHeartbeats = "heartbeats"
 
 const DBDBNAME = "DBDBNAME"
 const DBCONNSTRING = "DBCONNSTRING"
+
+const GLOBREGIONS = "GLOB_REGIONS"
 
 var mainDatabase string
 
@@ -275,6 +299,7 @@ func UpdateRecord(dbClient *mongo.Client, db string, collection string, filter i
 	return nil
 }
 
+// TODO change function signature to receive also the db client
 func DeleteRecordsByFieldValue(db string, collection string, field string, value interface{}) (*mongo.DeleteResult, error) {
 	return GetClient().Database(db).Collection(collection).DeleteMany(context.TODO(), bson.M{field: value})
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 
 	"brainyping/pkg/dbhelper"
@@ -30,6 +31,7 @@ func main() {
 	defer dbhelper.Disconnect()
 
 	readAndWrite()
+
 	timeElapsed := int(time.Since(timeStart).Seconds())
 	fmt.Println("Process completed at ", time.Now().Format(time.ANSIC))
 	fmt.Println("Current memory usage (before GC): ", utilities.GetMemoryStats("AUTO")["AllocUnit"])
@@ -40,7 +42,8 @@ func main() {
 }
 
 func readAndWrite() {
-
+	var requestsPerSecond int
+	var frequencyMinutes int
 	var linesReadFromFile int // records processed
 	var recsSaved int         // records saved to db
 	var recsInBufferList int  // records in list to be saved
@@ -48,6 +51,17 @@ func readAndWrite() {
 	var startSchedTimeUnix int64 = time.Now().Unix()
 	var record dbhelper.CheckRecord
 	var recordsInCurrentSecond int
+
+	fmt.Println("Please be sure you know in adavance how many rows will be pushed to avoid frequency overlapping")
+	requestsPerSecond, err := strconv.Atoi(utilities.ReadUserInput("How many requests per seconds? "))
+	utilities.FailOnError(err)
+	frequencyMinutes, err = strconv.Atoi(utilities.ReadUserInput("Checks frequency (minutes)? "))
+	utilities.FailOnError(err)
+
+	// remove previous records added by the bulk loader....
+	fmt.Println("Previous records removed")
+	_, err = dbhelper.DeleteRecordsByFieldValue(dbhelper.GetDatabaseName(), dbhelper.TablenameChecks, "owneruid", settings.GetSettStr(BLOWNERUID))
+	utilities.FailOnError(err)
 
 	file, err := os.Open("siteslist.txt")
 	if err != nil {
@@ -58,8 +72,10 @@ func readAndWrite() {
 	// define the splitting function (lines)
 	scanner.Split(bufio.ScanLines)
 
+	regionsList := createRegionsList()
+
 	for scanner.Scan() {
-		if recordsInCurrentSecond >= settings.GetSettInt(BLRPSSPREAD)/2 {
+		if recordsInCurrentSecond >= requestsPerSecond {
 			recordsInCurrentSecond = 0
 			startSchedTimeUnix--
 		}
@@ -75,24 +91,15 @@ func readAndWrite() {
 			Host:               "https://" + scanner.Text(),
 			Port:               443,
 			Type:               "HTTP",
-			SubType:            "HEAD",
-			Frequency:          1,
+			SubType:            "GET",
+			Frequency:          frequencyMinutes,
 			Enabled:            true,
-			Regions:            []string{"GLOBAL"},
-			RegionsEachTime:    1,
+			Regions:            regionsList,
 			StartSchedTimeUnix: startSchedTimeUnix,
 			CreatedUnix:        creationTimeUnix,
 			UpdatedUnix:        creationTimeUnix,
 			OwnerUid:           settings.GetSettStr(BLOWNERUID),
 		}
-		record.Name = scanner.Text() + record.Type + record.SubType
-		recordsToSave = append(recordsToSave, record)
-		recsSaved++
-		recsInBufferList++
-
-		// HTTPS GET
-		record.CheckId = fmt.Sprint("RECID-", recsSaved)
-		record.SubType = "GET"
 		record.Name = scanner.Text() + record.Type + record.SubType
 		recordsToSave = append(recordsToSave, record)
 		recsSaved++
@@ -126,4 +133,21 @@ func readAndWrite() {
 	// on the os.File object to close the file
 	_ = file.Close()
 
+}
+
+func createRegionsList() [][]string {
+
+	var regionsListToReturn [][]string
+	regions, err := settings.GetRegionsList()
+	utilities.FailOnError(err)
+
+	for _, r := range regions {
+		// todo check if region is enabled....
+		for _, sr := range r.SubRegions {
+			// todo check if subregion is enabled
+			regionsListToReturn = append(regionsListToReturn, []string{r.Id, sr.Id})
+		}
+	}
+
+	return regionsListToReturn
 }

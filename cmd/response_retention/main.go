@@ -36,7 +36,7 @@ func main() {
 	internalstatusmonitorapi.StartListener(settings.GetSettStr(RRAPIPORT), initapp.GetAppRole())
 
 	// start the beating..
-	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*60, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats, settings.GetSettStr(RRAPIPORT), utilities.RetrievePublicIP()).Start()
 
 	retentionDays = settings.GetSettInt64(RRDAYS)
 	retentionSeconds = retentionDays * 24 * 60 * 60

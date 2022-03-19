@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"sync/atomic"
 	"time"
 
@@ -29,13 +30,13 @@ const SCHAPIPORT = "SCH_API_PORT"
 
 func main() {
 	initapp.InitApp("SCHEDULER")
-	queuehelper.InitQueue()
+	queuehelper.InitQueueScheduler()
 
 	// start the listener for internal status monitoring
 	internalstatusmonitorapi.StartListener(settings.GetSettStr(SCHAPIPORT), initapp.GetAppRole())
 
 	// start the beating..
-	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*15, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats).Start()
+	heartbeat.New(utilities.RetrieveHostName(), initapp.RetrieveHostNameFriendly(), initapp.GetAppRole(), "-", "-", time.Second*15, dbhelper.GetClient(), dbhelper.GetDatabaseName(), dbhelper.TablenameHeartbeats, settings.GetSettStr(SCHAPIPORT), utilities.RetrievePublicIP()).Start()
 
 	fmt.Println("SCHEDULER")
 	fmt.Printf("Boot time is %s\n", initapp.GetBootTime().Format(time.Stamp))
@@ -134,14 +135,24 @@ func queue(record queuehelper.CheckRecordQueued) {
 		fmt.Println("🔴")
 		log.Fatal(err)
 	}
-	// TODO SEND THE SCHEDULED EVENT ALSO TO THE SCHEDULE PLAN...
+	// TODO SEND THE SCHEDULED EVENT ALSO TO THE SCHEDULE PLAN...?
+
+	// if there are no regions configured ignore the request... even if it shouldn't be arrived here...
+	// todo LOG?
+	numOfRegions := len(record.Record.Regions)
+	if numOfRegions == 0 {
+		return
+	}
+
+	// let's pick a random region to send the request to....
+	randomRegionId := rand.Intn(numOfRegions)
 
 	// for the moment we queue the whole record scheduled,
 	// maybe later down the line we want to slim down...or enrich?
-	err = PublishRequestForNewCheck(recordJson)
+	err = PublishRequestForNewCheck(recordJson, record.Record.Regions[randomRegionId][0], record.Record.Regions[randomRegionId][1])
 	if err != nil {
 		// TODO MAYBE WE DON'T WANT TO DIE BUT LOG AND TRY TO CONTINUE?
-		log.Fatal(err)
+		utilities.FailOnError(err)
 	}
 
 	err = saveRecordAsInFlight(record)

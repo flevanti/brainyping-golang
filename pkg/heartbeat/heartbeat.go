@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"brainyping/pkg/dbhelper"
+	"brainyping/pkg/initapp"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -34,22 +35,28 @@ type HeartBeatType struct {
 	dbClient              *mongo.Client
 	dbName                string
 	dbCollection          string
+	publicIp              string
+	statusListeningPort   string
+	appVersion            [][]string
 }
 
 type HeartBeatDBType struct {
-	HostName              string `bson:"hostname"`
-	HostNameFriendly      string `bson:"hostnamefriendly"`
-	AppRole               string `bson:"approle"`
-	Region                string `bson:"region"`
-	SubRegion             string `bson:"subregion"`
-	LastHBUnix            int64  `bson:"lasthbunix"`
-	LastHB                string `bson:"lasthb"`
-	UptimeSeconds         int64  `bson:"uptimeseconds"`
-	UptimeHuman           string `bson:"uptimehuman"`
-	UptimeSinceHuman      string `bson:"uptimesincehuman"`
-	UptimeSinceUnix       int64  `bson:"uptimesinceunix"`
-	PulseSequence         int64  `bson:"pulsesequence"`
-	PulseFrequencySeconds int64  `bson:"pulsefrequencyseconds"`
+	HostName              string     `bson:"hostname"`
+	HostNameFriendly      string     `bson:"hostnamefriendly"`
+	AppRole               string     `bson:"approle"`
+	Region                string     `bson:"region"`
+	SubRegion             string     `bson:"subregion"`
+	LastHBUnix            int64      `bson:"lasthbunix"`
+	LastHB                string     `bson:"lasthb"`
+	UptimeSeconds         int64      `bson:"uptimeseconds"`
+	UptimeHuman           string     `bson:"uptimehuman"`
+	UptimeSinceHuman      string     `bson:"uptimesincehuman"`
+	UptimeSinceUnix       int64      `bson:"uptimesinceunix"`
+	PulseSequence         int64      `bson:"pulsesequence"`
+	PulseFrequencySeconds int64      `bson:"pulsefrequencyseconds"`
+	PublicIp              string     `bson:"publicip"`
+	StatusListeningPort   string     `bson:"statuslisteningport"`
+	AppVersion            [][]string `bson:"appversion"`
 }
 
 func (hb *HeartBeatType) Stop() {
@@ -100,6 +107,9 @@ func (hb *HeartBeatType) sendPulse() {
 	dbRecord.UptimeSinceUnix = hb.uptimeSinceUnix
 	dbRecord.PulseSequence = hb.pulseSequence
 	dbRecord.PulseFrequencySeconds = hb.pulseFrequencySeconds
+	dbRecord.PublicIp = hb.publicIp
+	dbRecord.StatusListeningPort = hb.statusListeningPort
+	dbRecord.AppVersion = hb.appVersion
 
 	t := true
 	opts := options.UpdateOptions{}
@@ -110,7 +120,7 @@ func (hb *HeartBeatType) sendPulse() {
 	}
 }
 
-func New(hostName string, hostNameFriendly string, appRole string, region string, subRegion string, frequency time.Duration, dbClient *mongo.Client, dbName string, dbCollection string) *HeartBeatType {
+func New(hostName string, hostNameFriendly string, appRole string, region string, subRegion string, frequency time.Duration, dbClient *mongo.Client, dbName string, dbCollection string, statusListeningPort string, publicIp string) *HeartBeatType {
 	hb := HeartBeatType{}
 
 	hb.dbClient = dbClient
@@ -124,6 +134,9 @@ func New(hostName string, hostNameFriendly string, appRole string, region string
 	hb.subRegion = subRegion
 	hb.uptimeSinceTime = time.Now()
 	hb.pulseFrequency = frequency
+	hb.publicIp = publicIp
+	hb.statusListeningPort = statusListeningPort
+	hb.appVersion = initapp.GetAppVersion()
 
 	hb.uptimeSinceUnix = hb.uptimeSinceTime.Unix()
 	hb.uptimeSinceHuman = hb.uptimeSinceTime.Format(time.RFC850)

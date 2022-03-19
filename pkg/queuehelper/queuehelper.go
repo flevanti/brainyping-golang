@@ -1,11 +1,14 @@
 package queuehelper
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	"brainyping/pkg/dbhelper"
 	"brainyping/pkg/settings"
+	"brainyping/pkg/utilities"
 
 	"github.com/streadway/amqp"
 )
@@ -31,32 +34,99 @@ type CheckRecordQueued struct {
 	RequestId                 string                      `bson:"requestid"`
 }
 
-func InitQueue() {
+func InitQueueWorker(region string, subRegion string) {
+	region = strings.Trim(region, " ")
+	subRegion = strings.Trim(subRegion, " ")
+
+	if region == "" || subRegion == "" {
+		utilities.FailOnError(errors.New("both region and subregion values need to be populated"))
+	}
+	initQueue(true, true, region, subRegion)
+}
+
+func InitQueueScheduler() {
+	initQueue(true, false, "", "")
+}
+
+func InitQueueResponseCollector() {
+	initQueue(false, true, "", "")
+
+}
+
+func initQueue(requests bool, responses bool, workerRegion string, workerSubRegion string) {
 	var err error
 	queueBrokerConnection, err = amqp.Dial(os.Getenv("QUEUEURL"))
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	utilities.FailOnError(err)
 
 	queueBrokerChannel, err = queueBrokerConnection.Channel()
-	if err != nil {
-		log.Fatal(err.Error())
+	utilities.FailOnError(err)
+
+	if requests {
+		initQueuesRequests(workerRegion != "", workerRegion, workerSubRegion)
 	}
 
-	_, err = queueBrokerChannel.QueueDeclare(settings.GetSettStr(QUEUENAMEREQUEST), true, false, false, false, nil)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	_, err = queueBrokerChannel.QueueDeclare(settings.GetSettStr(QUEUENAMERESPONSE), true, false, false, false, nil)
-	if err != nil {
-		log.Fatal(err.Error())
+	if responses {
+		initQueuesResponses()
 	}
 
 	err = queueBrokerChannel.Qos(settings.GetSettInt(QUEUEPREFETCHCOUNT), 0, false)
+	utilities.FailOnError(err)
 
-	if err != nil {
-		log.Fatal(err.Error())
+}
+
+func initQueuesRequests(worker bool, region, subRegion string) {
+	var queueDeclared bool
+	// REQUESTS QUEUES
+	regions, err := settings.GetRegionsList()
+	utilities.FailOnError(err)
+
+	for _, r := range regions {
+		// todo once system is stable implement check for region enabled flag here
+		for _, sr := range r.SubRegions {
+			queueFullName := BuildRequestsQueueName(r.Id, sr.Id)
+			// todo once system is stable implement check for sub region enabled flag here
+
+			// if declaring for a worker make sure we are declaring the queue for the righ region/subregion only....
+			if worker && (region != r.Id || subRegion != sr.Id) {
+				continue
+			}
+
+			// create the queue for the sub region. queue name is [queuebasename].[region].[subregion]
+			_, err := queueBrokerChannel.QueueDeclare(queueFullName, true, false, false, false, nil)
+			utilities.FailOnError(err)
+
+			// create queue bindings with topic exchange
+			err = queueBrokerChannel.QueueBind(queueFullName, BuildRequestsQueuebindingKey(r.Id, sr.Id), "amq.topic", false, nil)
+			utilities.FailOnError(err)
+
+			// at least one queue has been declared (this is particularly important for workers that are consuming only one specific queue....
+			queueDeclared = true
+
+		} // end for subregions loop
+	} // end for regions loop
+
+	if !queueDeclared {
+		utilities.FailOnError(errors.New("unable to declare queue for worker, region/subregion configuration not found"))
 	}
+}
+
+func BuildRequestsQueueName(region, subRegion string) string {
+	queueBaseName := settings.GetSettStr(QUEUENAMEREQUEST)
+	if queueBaseName == "" {
+		utilities.FailOnError(errors.New("requests queue base name is empty in settings"))
+	}
+	return fmt.Sprintf("%s.%s.%s", queueBaseName, region, subRegion)
+}
+
+func BuildRequestsQueuebindingKey(region, subRegion string) string {
+	return fmt.Sprintf("%s.%s", region, subRegion)
+}
+
+func initQueuesResponses() {
+	// RESPONSES QUEUE
+	_, err := queueBrokerChannel.QueueDeclare(settings.GetSettStr(QUEUENAMERESPONSE), true, false, false, false, nil)
+	utilities.FailOnError(err)
+
 }
 
 func GetQueueBrokerChannel() *amqp.Channel {

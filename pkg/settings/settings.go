@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -85,4 +86,19 @@ func SaveNewSettFriendly(key string, value string, description string) {
 func DeleteSettingByKey(key string) {
 	_, err := dbhelper.DeleteRecordsByFieldValue(dbhelper.GetDatabaseName(), dbhelper.TablenameSettings, "key", key)
 	utilities.FailOnError(err)
+}
+
+func GetRegionsList() ([]dbhelper.RegionType, error) {
+	var regions []dbhelper.RegionType
+	v := GetSettStr(dbhelper.GLOBREGIONS)
+	if v == "" {
+		return regions, nil
+	}
+
+	err := json.Unmarshal([]byte(v), &regions)
+	if err != nil {
+		return regions, errors.New(fmt.Sprintf("Error while retrieving regions list: %s", err.Error()))
+	}
+
+	return regions, nil
 }

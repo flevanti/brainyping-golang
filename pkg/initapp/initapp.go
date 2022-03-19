@@ -111,9 +111,19 @@ func GetSettings() ([]dbhelper.SettingType, error) {
 
 func printVersion() {
 	fmt.Printf("VERSION...... %s\n", version)
-	fmt.Printf("BUILD DATA... %s\n", buildDate)
+	fmt.Printf("BUILD DATE... %s\n", buildDate)
 	fmt.Printf("BUILD UNIX... %s\n", buildDateUnix)
 	fmt.Printf("BUILD HASH... %s\n", build)
 	fmt.Printf("GIT HASH..... %s", gitHash)
 
+}
+
+func GetAppVersion() [][]string {
+	return [][]string{
+		{"BUILD DATE", buildDate},
+		{"VERSION", version},
+		{"BUILD UNIX", buildDateUnix},
+		{"BUILD HASH", build},
+		{"GIT HASH", gitHash},
+	}
 }
