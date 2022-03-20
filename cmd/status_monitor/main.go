@@ -32,6 +32,10 @@ type checkStatusType struct {
 	PreviousStatusDuration    time.Duration `bson:"previousstatusduration"`
 	PreviousStatusDurationSec int64         `bson:"previousstatusdurationsec"`
 	ChangeProcessedUnix       int64         `bson:"changeprocessedunix"`
+	Region                    string        `bson:"region"`
+	SubRegion                 string        `bson:"subregion"`
+	WorkerHostname            string        `bson:"workerhostname"`
+	WorkerHostnameFriendly    string        `bson:"workerhostnamefriendly"`
 }
 
 type markerType struct {
@@ -257,6 +261,11 @@ func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus 
 	statusRecord.ChangeProcessedUnix = time.Now().Unix()
 	statusRecord.PreviousStatusDuration = statusRecord.CurrentStatusSince.Sub(statusRecord.PreviousStatusSince)
 	statusRecord.PreviousStatusDurationSec = int64(time.Duration(statusRecord.PreviousStatusDuration) * time.Second)
+	statusRecord.WorkerHostname = record.WorkerHostname
+	statusRecord.WorkerHostnameFriendly = record.WorkerHostnameFriendly
+	statusRecord.Region = record.Region
+	statusRecord.SubRegion = record.SubRegion
+
 	checksStatuses[record.CheckId] = statusRecord
 }
 
