@@ -216,7 +216,13 @@ forloop:
 			workersMetadata.workerMetadata[metadataIndex].lastMsgTime = time.Now()
 
 			err = unmarshalMessageBody(&check.Body, &messageQueued)
-			utilities.FailOnError(err)
+			if err != nil {
+				// this is a very strange situation and we need to investigate for the moment print & die
+				log.Println("Error unmarshalling the message from the queue!")
+				log.Printf("This is the content of the message: %v", check)
+				log.Println("-----------------------------SEE YOU SOON------------")
+				utilities.FailOnError(err)
+			}
 
 			messageQueued.ReceivedByWorkerUnix = time.Now().Unix()
 			messageQueued.WorkerHostname = workerHostName
