@@ -215,6 +215,17 @@ forloop:
 			atomic.AddInt64(&workersMetadata.workersTotalMsgReceived, 1)
 			workersMetadata.workerMetadata[metadataIndex].lastMsgTime = time.Now()
 
+			if len(check.Body) == 0 {
+				// continue the investigation for GH-40
+				// sometimes the message we receive from rabbitmq is empty so trying to process the request will casuse issues.
+				// "for the moment" skip the record to avoid crashing the app
+				//
+				// Please note that we are not Acknowledging the message, technically it should remain pending in rabbitmq
+				// this will help you to better determine if the issue is local/in transit/sender relater
+				//
+				continue
+			}
+
 			err = unmarshalMessageBody(&check.Body, &messageQueued)
 			if err != nil {
 				// this is a very strange situation and we need to investigate for the moment print & die
