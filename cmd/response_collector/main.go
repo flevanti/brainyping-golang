@@ -46,7 +46,7 @@ const RCAPIPORT = "RC_API_PORT"
 
 func main() {
 	initapp.InitApp("RESPONSESCOLLECTOR")
-	queuehelper.InitQueueResponseCollector()
+	utilities.FailOnError(queuehelper.InitQueueResponseCollector())
 
 	// start the listener for internal status monitoring
 	internalstatusmonitorapi.StartListener(settings.GetSettStr(RCAPIPORT), initapp.GetAppRole())
@@ -66,7 +66,7 @@ func main() {
 	closeHandler(cfunc)
 
 	// start the queue consumer...
-	go ConsumeQueueForResponsesToChecks(ctx, chReceive)
+	ConsumeQueueForResponsesToChecks(ctx, chReceive)
 
 	dbhelper.Connect(settings.GetSettStr(dbhelper.DBDBNAME), settings.GetSettStr(dbhelper.DBCONNSTRING))
 	defer dbhelper.Disconnect()

@@ -20,7 +20,7 @@ import (
 
 var bootTime time.Time
 
-var buildDateUnix string = "0"
+var buildDateUnix string = "1"
 var buildDate string
 var build string
 var version string = "developer"

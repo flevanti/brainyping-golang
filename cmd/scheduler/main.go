@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -30,7 +31,7 @@ const SCHAPIPORT = "SCH_API_PORT"
 
 func main() {
 	initapp.InitApp("SCHEDULER")
-	queuehelper.InitQueueScheduler()
+	utilities.FailOnError(queuehelper.InitQueueScheduler())
 
 	// start the listener for internal status monitoring
 	internalstatusmonitorapi.StartListener(settings.GetSettStr(SCHAPIPORT), initapp.GetAppRole())
@@ -152,7 +153,7 @@ func queue(record queuehelper.CheckRecordQueued) {
 	err = PublishRequestForNewCheck(recordJson, record.Record.Regions[randomRegionId][0], record.Record.Regions[randomRegionId][1])
 	if err != nil {
 		// TODO MAYBE WE DON'T WANT TO DIE BUT LOG AND TRY TO CONTINUE?
-		utilities.FailOnError(err)
+		utilities.FailOnError(errors.New(fmt.Sprintf("Error while queueing record in queue %s.%s. Original error: %s", record.Record.Regions[randomRegionId][0], record.Record.Regions[randomRegionId][1], err)))
 	}
 
 	err = saveRecordAsInFlight(record)
