@@ -50,7 +50,7 @@ var workerHostName string = utilities.RetrieveHostName()
 var workerHostNameFriendly string
 var endOfTheWorld bool
 var workersMetadata workersMetadataType
-var throttlerChannel chan int
+var throttlerChannel chan int = make(chan int) // used to throttle the workers
 var workerStatus = map[string]workerStatusType{
 	"NEW":   {statusText: "NEW", statusIcon: "NEW"},
 	"READY": {statusText: "READY", statusIcon: "READY"},
@@ -80,7 +80,7 @@ func main() {
 	// check if region/subregion are valid
 	utilities.FailOnError(checkRegionIsValid())
 
-	queuehelper.InitQueueWorker(settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION))
+	utilities.FailOnError(queuehelper.InitQueueWorker(settings.GetSettStr(WORKERREGION), settings.GetSettStr(WORKERSUBREGION)))
 
 	workerHostNameFriendly = initapp.RetrieveHostNameFriendly()
 
@@ -92,9 +92,6 @@ func main() {
 
 	printGreetings()
 	httpcheck.HttpCheckDefaultUserAgent = settings.GetSettStr(WRKHTTPUSERAGENT)
-
-	// initialise the throttle channel, please note that the variable already exists in the global scope
-	throttlerChannel = make(chan int)
 
 	// create the context
 	ctx, cfunc := context.WithCancel(context.Background())
@@ -115,8 +112,8 @@ func main() {
 	// start the throttler
 	throttler()
 
-	// start the queue consumer...
-	go ConsumeQueueForPendingChecks(ctx, ch)
+	// start to consume the queue...
+	utilities.FailOnError(ConsumeQueueForPendingChecks(ctx, ch))
 
 	go waitingForTheWorldToEnd(ctx)
 
@@ -194,7 +191,8 @@ func waitingForTheWorldToEnd(ctx context.Context) {
 	allWorkersGracefullyEnded()
 
 	// Closing the queue
-	queuehelper.CloseQueue()
+	queuehelper.CloseConsumerConnection()
+	queuehelper.ClosePublisherConnection()
 
 	// this is it, it has been fun!
 	os.Exit(0)
@@ -210,22 +208,15 @@ forloop:
 	for {
 		select {
 		case check := <-ch:
+			if len(check.Body) == 0 {
+				// this should never happen because we check for the same thing in the consumer
+				// this is most likely caused by the queue empty or the consumer cancelled
+				continue
+			}
 			<-throttlerChannel
 			workersMetadata.workerMetadata[metadataIndex].msgReceived++
 			atomic.AddInt64(&workersMetadata.workersTotalMsgReceived, 1)
 			workersMetadata.workerMetadata[metadataIndex].lastMsgTime = time.Now()
-
-			if len(check.Body) == 0 {
-				// continue the investigation for GH-40
-				// sometimes the message we receive from rabbitmq is empty so trying to process the request will casuse issues.
-				// "for the moment" skip the record to avoid crashing the app
-				//
-				// Please note that we are not Acknowledging the message, technically it should remain pending in rabbitmq
-				// this will help you to better determine if the issue is local/in transit/sender relater
-				//
-				continue
-			}
-
 			err = unmarshalMessageBody(&check.Body, &messageQueued)
 			if err != nil {
 				// this is a very strange situation and we need to investigate for the moment print & die
