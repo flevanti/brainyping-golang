@@ -213,6 +213,9 @@ forloop:
 				// this is most likely caused by the queue empty or the consumer cancelled
 				continue
 			}
+			// make sure variable is clean/reset , not sure if the unmarshalling is replacing all keys values or not...
+			messageQueued = queuehelper.CheckRecordQueued{}
+
 			<-throttlerChannel
 			workersMetadata.workerMetadata[metadataIndex].msgReceived++
 			atomic.AddInt64(&workersMetadata.workersTotalMsgReceived, 1)
@@ -231,10 +234,28 @@ forloop:
 			messageQueued.WorkerHostnameFriendly = workerHostNameFriendly
 
 			_ = check.Ack(false)
-			err = checks.ProcessCheckFromQueue(&messageQueued)
-			if err != nil {
-				workersMetadata.workerMetadata[metadataIndex].msgFailed++
+
+			// if the check fails make sure we try again just in case...
+			for {
+				messageQueued.RecordOutcome.Attempts++
+				err = checks.ProcessCheckFromQueue(&messageQueued)
+				if err != nil {
+					workersMetadata.workerMetadata[metadataIndex].msgFailed++
+					// if an error occurred stop trying....
+					break
+				}
+				if messageQueued.RecordOutcome.Success {
+					// if the check was successful we can break the loop
+					break
+				}
+				// we don't want to try more than xx times
+				if messageQueued.RecordOutcome.Attempts >= 3 {
+					break
+				}
+				// sleep a little before trying again 😴
+				time.Sleep(3 * time.Second)
 			}
+
 			messageQueued.QueuedReturnUnix = time.Now().Unix()
 			messageQueued.RecordOutcome.Region = settings.GetSettStr(WORKERREGION)
 			messageQueued.RecordOutcome.SubRegion = settings.GetSettStr(WORKERSUBREGION)

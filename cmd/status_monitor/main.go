@@ -36,6 +36,7 @@ type checkStatusType struct {
 	SubRegion                 string        `bson:"subregion"`
 	WorkerHostname            string        `bson:"workerhostname"`
 	WorkerHostnameFriendly    string        `bson:"workerhostnamefriendly"`
+	Attempts                  int           `bson:"attempts"`
 }
 
 type markerType struct {
@@ -265,6 +266,7 @@ func updateCheckStatusElement(record *dbhelper.CheckResponseRecordDb, newStatus 
 	statusRecord.WorkerHostnameFriendly = record.WorkerHostnameFriendly
 	statusRecord.Region = record.Region
 	statusRecord.SubRegion = record.SubRegion
+	statusRecord.Attempts = record.Attempts
 
 	checksStatuses[record.CheckId] = statusRecord
 }
@@ -291,11 +293,12 @@ func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 
 func logChange(checkId string) {
 
-	log.Printf("Status change detected at %s for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s]\n",
+	log.Printf("Status change detected at %s for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s] (%d attempts)\n",
 		checksStatuses[checkId].CurrentStatusSince.Format(time.Stamp),
 		checksStatuses[checkId].CheckId,
 		checksStatuses[checkId].RequestId,
 		checksStatuses[checkId].CurrentStatus,
 		checksStatuses[checkId].PreviousStatus,
-		checksStatuses[checkId].PreviousStatusDuration)
+		checksStatuses[checkId].PreviousStatusDuration,
+		checksStatuses[checkId].Attempts)
 }

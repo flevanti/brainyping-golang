@@ -63,6 +63,7 @@ type CheckResponseRecordDb struct {
 	RequestId              string            `bson:"requestid"`
 	WorkerHostname         string            `bson:"workerhostname"`
 	WorkerHostnameFriendly string            `bson:"workerhostnamefriendly"`
+	Attempts               int               `bson:"attempts"`
 }
 
 type CheckOutcomeRecord struct {
@@ -77,6 +78,7 @@ type CheckOutcomeRecord struct {
 	CreatedUnix      int64             `bson:"createdunix"`
 	Region           string            `bson:"region"`
 	SubRegion        string            `bson:"subregion"`
+	Attempts         int               `bson:"attempts"`
 }
 
 type RedirectHistory struct {
