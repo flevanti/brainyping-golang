@@ -236,8 +236,9 @@ forloop:
 			_ = check.Ack(false)
 
 			// if the check fails make sure we try again just in case...
+
 			for {
-				messageQueued.RecordOutcome.Attempts++
+				messageQueued.Attempts++
 				err = checks.ProcessCheckFromQueue(&messageQueued)
 				if err != nil {
 					workersMetadata.workerMetadata[metadataIndex].msgFailed++
@@ -249,7 +250,7 @@ forloop:
 					break
 				}
 				// we don't want to try more than xx times
-				if messageQueued.RecordOutcome.Attempts >= 3 {
+				if messageQueued.Attempts >= 3 {
 					break
 				}
 				// sleep a little before trying again 😴

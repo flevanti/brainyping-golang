@@ -74,6 +74,7 @@ type CheckRecordQueued struct {
 	ReceivedByResponseHandler int64                       `bson:"receivedbyresponsehandler"`
 	ErrorFatal                string                      `bson:"errorfatal"`
 	RequestId                 string                      `bson:"requestid"`
+	Attempts                  int                         `bson:"attempts"`
 }
 
 func InitQueueWorker(region string, subRegion string) error {

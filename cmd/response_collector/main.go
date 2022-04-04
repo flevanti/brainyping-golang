@@ -185,7 +185,7 @@ func prepareRecordToBeSaved(record queuehelper.CheckRecordQueued) dbhelper.Check
 	response.RequestId = record.RequestId
 	response.WorkerHostname = record.WorkerHostname
 	response.WorkerHostnameFriendly = record.WorkerHostnameFriendly
-	response.Attempts = record.RecordOutcome.Attempts
+	response.Attempts = record.Attempts
 
 	return response
 

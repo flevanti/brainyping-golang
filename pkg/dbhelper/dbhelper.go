@@ -78,7 +78,6 @@ type CheckOutcomeRecord struct {
 	CreatedUnix      int64             `bson:"createdunix"`
 	Region           string            `bson:"region"`
 	SubRegion        string            `bson:"subregion"`
-	Attempts         int               `bson:"attempts"`
 }
 
 type RedirectHistory struct {

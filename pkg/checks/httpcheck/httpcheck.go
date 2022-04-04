@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
-	"strings"
 	"time"
 
 	"brainyping/pkg/dbhelper"
@@ -87,10 +86,12 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 	if err != nil {
 		returnedValue.ErrorInternal = "Error while performing http call: " + err.Error()
 		returnedValue.ErrorOriginal = err.Error()
-		returnedValue.ErrorFriendly = "Error while performing HTTP request"
 		returnedValue.Message = returnedValue.ErrorFriendly
-		return returnedValue, err
+		returnedValue.ErrorFriendly = returnedValue.ErrorInternal // todo try to detect errors due to the target server vs internal app errors
+		// for the moments all http errors are considered errors to expose to the customers so returned error is nil
+		return returnedValue, nil
 	}
+
 	defer response.Body.Close()
 	response.Close = true
 
@@ -103,7 +104,8 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 		returnedValue.ErrorOriginal = fmt.Sprintf("Status code not 2xx but %s", response.Status)
 		returnedValue.ErrorInternal = returnedValue.ErrorOriginal
 		returnedValue.ErrorFriendly = returnedValue.ErrorOriginal
-		return returnedValue, errors.New(strings.ToLower(returnedValue.ErrorOriginal))
+		// this situation while is a failed check is not an app error so returned err is nil
+		return returnedValue, nil
 	}
 
 	returnedValue.Success = true
