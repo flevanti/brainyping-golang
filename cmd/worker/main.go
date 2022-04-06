@@ -209,10 +209,20 @@ forloop:
 		select {
 		case check := <-ch:
 			if len(check.Body) == 0 {
+				// todo log this
 				// this should never happen because we check for the same thing in the consumer
 				// this is most likely caused by the queue empty or the consumer cancelled
 				continue
 			}
+			err = check.Ack(false)
+			if err != nil {
+				// todo log this
+				// it is possible that the connection dropped and the message was not acknowledged...
+				// if this is true rabbitmq has put back the messages in the queue and they will be consumed shortly again...
+				// so for the moment we just ignore this error and continue...
+				continue
+			}
+
 			// make sure variable is clean/reset , not sure if the unmarshalling is replacing all keys values or not...
 			messageQueued = queuehelper.CheckRecordQueued{}
 
@@ -232,8 +242,6 @@ forloop:
 			messageQueued.ReceivedByWorkerUnix = time.Now().Unix()
 			messageQueued.WorkerHostname = workerHostName
 			messageQueued.WorkerHostnameFriendly = workerHostNameFriendly
-
-			_ = check.Ack(false)
 
 			// if the check fails make sure we try again just in case...
 

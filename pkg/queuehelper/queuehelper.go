@@ -278,29 +278,60 @@ func ClosePublisherConnection() {
 }
 
 func StartConsumingMessages(ctx context.Context, consumerName, queueName string, ch chan<- amqp.Delivery) error {
-	msgs, err := connectionConsumerInfo.GetQueueBrokerChannel().Consume(queueName,
+	msgsCh, err := connectionConsumerInfo.GetQueueBrokerChannel().Consume(queueName,
 		consumerName,
 		false,
 		false,
 		false,
 		false,
 		nil)
-
 	if err != nil {
 		return err
 	}
+
+	// create the channel to monitor the consumer connection...
+	connClosedCh := connectionConsumerInfo.GetQueueBrokerChannel().NotifyClose(make(chan *amqp.Error))
+
 	go func() {
 		for {
 			select {
-			case msg := <-msgs:
+			case msg := <-msgsCh:
 				if len(msg.Body) == 0 {
 					continue
 				}
-				// todo check if connection is still up
 				ch <- msg
+			case <-connClosedCh:
+				if connectionConsumerInfo.GetQueueBrokerConnection().IsClosed() {
+					// todo log this
+					err = connectionConsumerInfo.initQueue()
+					if err != nil {
+						// todo log this
+						fmt.Println("Unable to reconnect to consumer queue...")
+						os.Exit(1)
+					}
+					msgsCh, err = connectionConsumerInfo.GetQueueBrokerChannel().Consume(queueName,
+						consumerName,
+						false,
+						false,
+						false,
+						false,
+						nil)
+					if err != nil {
+						// todo log this
+						fmt.Println("Unable to restart consuming the queue...")
+						os.Exit(1)
+					}
+					// refresh the channel to monitor the consumer connection...
+					connClosedCh = connectionConsumerInfo.GetQueueBrokerChannel().NotifyClose(make(chan *amqp.Error))
+				} else {
+					// we shouldn't be here really...
+					fmt.Println("received a notification of a closed connection, but the connection is not closed...")
+					// todo log this
+				}
+
 			case <-ctx.Done():
 				CancelConsumer(consumerName)
-				if len(msgs) == 0 {
+				if len(msgsCh) == 0 {
 					return
 				}
 			} // end select case
