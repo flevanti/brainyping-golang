@@ -7,11 +7,11 @@ version: '3.3'
 services:
 
   mongo:
-    image: mongo
+    image: mongo:5.0.7
     ports:
       - 27017:27017
     volumes:
-      - '~/.dockerdata/brainyping/mongodb/data:/data/db'
+      - '~/.dockerdata/brainyping/mongodb/data:/data'
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
