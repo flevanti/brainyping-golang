@@ -49,6 +49,7 @@ type connectionInfoType struct {
 	isPublisher             bool
 	connectionFailure       bool
 	channelMutex            sync.Mutex
+	reconnectingMutex       sync.Mutex
 }
 
 var connectionConsumerInfo connectionInfoType
@@ -290,6 +291,7 @@ func StartConsumingMessages(ctx context.Context, consumerName, queueName string,
 	}
 
 	// create the channel to monitor the consumer connection...
+	// this is implemented here because the consumer channel is a local variable
 	connClosedCh := connectionConsumerInfo.GetQueueBrokerChannel().NotifyClose(make(chan *amqp.Error))
 
 	go func() {
@@ -303,6 +305,9 @@ func StartConsumingMessages(ctx context.Context, consumerName, queueName string,
 			case <-connClosedCh:
 				if connectionConsumerInfo.GetQueueBrokerConnection().IsClosed() {
 					// todo log this
+
+					// we don't need to use the reconnection mutex here because this is a go-routine consuming/distributing messages using a channel so there's no multi-threading issue
+
 					err = connectionConsumerInfo.initQueue()
 					if err != nil {
 						// todo log this
@@ -346,61 +351,51 @@ func GetConsumerChannel() chan amqp.Delivery {
 }
 
 func PublishToQueueDirectly(queueName string, body []byte) error {
-	connectionPublisherInfo.channelMutex.Lock()
-	defer connectionPublisherInfo.channelMutex.Unlock()
-	err := connectionPublisherInfo.GetQueueBrokerChannel().Publish("",
-		queueName,
-		false,
-		false,
-		amqp.Publishing{Body: body, DeliveryMode: 2})
-	return err
+	// when exchange is empty it will default to default direct exchange and use the key as the routing key that matches the queue name
+	return publish("", queueName, body)
 }
 
 func PublishToTopicExchange(topicKey string, body []byte) error {
+	// amq.topic is the default topic exchange
+	return publish("amq.topic", topicKey, body)
+}
+
+func publish(exchange string, key string, body []byte) error {
 	connectionPublisherInfo.channelMutex.Lock()
 	defer connectionPublisherInfo.channelMutex.Unlock()
-	err := connectionPublisherInfo.GetQueueBrokerChannel().Publish("amq.topic",
-		topicKey,
+	err := connectionPublisherInfo.GetQueueBrokerChannel().Publish(exchange,
+		key,
 		false,
 		false,
 		amqp.Publishing{Body: body, DeliveryMode: 2})
+
+	// we could implement the publishing using a single go-routine and a channel to avoid the mutex lock/unlock
+	// but for the moment it is ok and connection issues are really rare so they won't impact performance
+	// todo investigating replacing function calling with channel use
+
+	if err != nil {
+		connectionPublisherInfo.reconnectingMutex.Lock()
+		defer connectionPublisherInfo.reconnectingMutex.Unlock()
+		if connectionPublisherInfo.GetQueueBrokerConnection().IsClosed() {
+			err = connectionPublisherInfo.initQueue()
+			if err != nil {
+				// todo log this
+				fmt.Println("Unable to reconnect to publisher queue...")
+				os.Exit(1)
+			}
+			err = connectionPublisherInfo.GetQueueBrokerChannel().Publish(exchange,
+				key,
+				false,
+				false,
+				amqp.Publishing{Body: body, DeliveryMode: 2})
+			if err != nil {
+				// todo log this
+				fmt.Println("Unable to reconnect to publisher queue...")
+				os.Exit(1)
+			}
+			fmt.Println("RECONNECTED TO PUBLISHER QUEUE")
+		}
+	}
+
 	return err
 }
-
-//
-// // for the moment we don't expose the whole connection monitor/reconnect status to the caller application, we keep in inside the queuehelper and see if that's enough
-// // if for any reason we want/think it is needed to warn the app we will implement it
-// func connectionMonitor() {
-//
-// 	// for the moment monitor only the connection, not the channel
-// 	// if the channel monitor is re-enable please be aware that reconnecting triggers close notification
-// 	// make sure you check if the connection is already up and that the error received is actually an error (!=nil)
-// 	// errCh1 := GetQueueBrokerChannel().NotifyClose(make(chan *amqp.Error, 10))
-// 	errCh2 := GetQueueBrokerConnection().NotifyClose(make(chan *amqp.Error, 10))
-// 	for {
-// 		select {
-// 		// case err := <-errCh1:
-// 		// 	fmt.Println("1--" + err.Error())
-// 		// 	errInit := connectionInfo.initQueue()
-// 		// 	if errInit != nil {
-// 		//
-// 		// 	}
-// 		case err := <-errCh2:
-// 			if err == nil {
-// 				break // not a real error/connection issue?
-// 			}
-// 			connIsClosed := connectionInfo.queueBrokerConnection.IsClosed()
-// 			if connIsClosed == false {
-// 				break // we already have a connection open, for the moment break, in the future maybe reset connection?
-// 			}
-// 			fmt.Println("2--" + err.Error())
-// 			errInit := connectionInfo.initQueue()
-// 			if errInit != nil {
-//
-// 			}
-// 		default:
-// 			fmt.Print("")
-//
-// 		}
-// 	}
-// }

@@ -271,9 +271,7 @@ forloop:
 
 			jsonRecord, _ := json.Marshal(messageQueued)
 			err = PublishResponseForCheckProcessed(jsonRecord)
-			if err != nil {
-				log.Printf("error while pushing response back to queue: %s", err.Error())
-			}
+			utilities.FailOnError(err)
 		case <-ctx.Done():
 			workersMetadata.workerMetadata[metadataIndex].WorkerStatus = WRKSTSCOOL
 			if time.Since(workersMetadata.workerMetadata[metadataIndex].lastMsgTime) > settings.GetSettDuration(WRKGRACEPERIODMS)*time.Millisecond {
