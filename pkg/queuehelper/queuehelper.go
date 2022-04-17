@@ -20,6 +20,7 @@ package queuehelper
 import (
 	"context"
 	"sync"
+	"time"
 
 	"brainyping/pkg/dbhelper"
 
@@ -308,9 +309,12 @@ func StartConsumingMessages(ctx context.Context, consumerName, queueName string,
 
 					// we don't need to use the reconnection mutex here because this is a go-routine consuming/distributing messages using a channel so there's no multi-threading issue
 
+					time.Sleep(2 * time.Second) // todo implement multiple reconnection attempts?
+
 					err = connectionConsumerInfo.initQueue()
 					if err != nil {
 						// todo log this
+						fmt.Println(err.Error())
 						fmt.Println("Unable to reconnect to consumer queue...")
 						os.Exit(1)
 					}
@@ -323,6 +327,7 @@ func StartConsumingMessages(ctx context.Context, consumerName, queueName string,
 						nil)
 					if err != nil {
 						// todo log this
+						fmt.Println(err.Error())
 						fmt.Println("Unable to restart consuming the queue...")
 						os.Exit(1)
 					}
@@ -377,9 +382,11 @@ func publish(exchange string, key string, body []byte) error {
 		connectionPublisherInfo.reconnectingMutex.Lock()
 		defer connectionPublisherInfo.reconnectingMutex.Unlock()
 		if connectionPublisherInfo.GetQueueBrokerConnection().IsClosed() {
+			time.Sleep(2 * time.Second) // todo implement multiple reconnection attempts?
 			err = connectionPublisherInfo.initQueue()
 			if err != nil {
 				// todo log this
+				fmt.Println(err.Error())
 				fmt.Println("Unable to reconnect to publisher queue...")
 				os.Exit(1)
 			}
@@ -390,6 +397,7 @@ func publish(exchange string, key string, body []byte) error {
 				amqp.Publishing{Body: body, DeliveryMode: 2})
 			if err != nil {
 				// todo log this
+				fmt.Println(err.Error())
 				fmt.Println("Unable to reconnect to publisher queue...")
 				os.Exit(1)
 			}
