@@ -293,12 +293,14 @@ func initialiseCheckStatusElement(record *dbhelper.CheckResponseRecordDb) {
 
 func logChange(checkId string) {
 
-	log.Printf("Status change detected at %s for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s] (%d attempts)\n",
+	log.Printf("Status change detected at %s for CID [%s] RID [%s] new status [%s] previously was [%s] for [%s] (%d attempts - Region %s->%s)\n",
 		checksStatuses[checkId].CurrentStatusSince.Format(time.Stamp),
 		checksStatuses[checkId].CheckId,
 		checksStatuses[checkId].RequestId,
 		checksStatuses[checkId].CurrentStatus,
 		checksStatuses[checkId].PreviousStatus,
 		checksStatuses[checkId].PreviousStatusDuration,
-		checksStatuses[checkId].Attempts)
+		checksStatuses[checkId].Attempts,
+		checksStatuses[checkId].Region,
+		checksStatuses[checkId].SubRegion)
 }
