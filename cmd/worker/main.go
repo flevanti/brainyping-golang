@@ -265,6 +265,10 @@ forloop:
 				time.Sleep(3 * time.Second)
 			}
 
+			if messageQueued.RecordOutcome.Success == false {
+				workersMetadata.workerMetadata[metadataIndex].msgFailed++
+			}
+
 			messageQueued.QueuedReturnUnix = time.Now().Unix()
 			messageQueued.RecordOutcome.Region = settings.GetSettStr(WORKERREGION)
 			messageQueued.RecordOutcome.SubRegion = settings.GetSettStr(WORKERSUBREGION)

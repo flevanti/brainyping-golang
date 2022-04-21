@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"time"
@@ -96,6 +97,16 @@ func subTypeGetHead(url string, method string, userAgent string) (dbhelper.Check
 	response.Close = true
 
 	returnedValue.Message = fmt.Sprintf("%s ||%d", response.Status, response.StatusCode)
+	returnedValue.ContentLength = response.ContentLength
+	if returnedValue.ContentLength < 1 {
+		b, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			// todo log error
+			returnedValue.ContentLength = -2 // -2 is our way to expose the content length not found
+		} else {
+			returnedValue.ContentLength = int64(len(b))
+		}
+	}
 
 	redirectionsToListRecursive(response, &returnedValue.RedirectsHistory)
 	returnedValue.Redirects = len(returnedValue.RedirectsHistory)
