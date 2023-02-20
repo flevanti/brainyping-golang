@@ -31,3 +31,13 @@ services:
       - '5672:5672'
       # HTTP management UI
       - '15672:15672'
+
+  mysql:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+    volumes:
+      - '~/.dockerdata/brainyping/mysql/data:/var/lib/mysql'
+    ports:
+      - '3306:3306'
