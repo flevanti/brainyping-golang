@@ -1,0 +1,2 @@
+echo running command [docker-compose up -d mysql]
+docker-compose up -d mysql
