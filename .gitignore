@@ -15,10 +15,6 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-#initial dataloading files
-/siteslist_long.txt
-/siteslist_long.txt
-
 #IDE FILES
 /.idea/
 /.vscode/
@@ -31,3 +27,7 @@
 
 #used to make sure some empty folders structure is kept intact
 !.keep
+
+
+
+.DS_Store
